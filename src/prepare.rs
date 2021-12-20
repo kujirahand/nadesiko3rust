@@ -1,58 +1,5 @@
-#[allow(dead_code)]
-
 use crate::charutils;
-
-struct StrCur {
-    pub src: Vec<char>,
-    pub index: usize,
-    pub length: usize,
-}
-
-impl StrCur {
-    pub fn from(src: &str) -> Self {
-        let vc:Vec<char> = src.chars().collect();
-        let len = vc.len();
-        Self {
-            src: vc,
-            index: 0,
-            length: len,
-        }
-    }
-    pub fn peek(&self) -> char {
-        if self.can_read() {
-            return self.src[self.index];
-        }
-        '\0'
-    }
-    pub fn next(&mut self) -> char {
-        if self.can_read() {
-            let ch = self.src[self.index];
-            self.index += 1;
-            return ch;
-        }
-        '\0'
-    }
-    pub fn peek_half(&self) -> char {
-        let ch = self.peek();
-        charutils::to_half_ascii(ch)
-    }
-    pub fn can_read(&self) -> bool {
-        self.index < self.length
-    }
-    pub fn eq_str(&self, target: &str) -> bool {
-        // 文字列の長さが異なる
-        if self.index + target.len() >= self.length {
-            return false;
-        }
-        // 一つずつ比較
-        for (i, c) in target.chars().enumerate() {
-            if self.src[i + self.index] != c {
-                return false;
-            }
-        }
-        true
-    }
-}
+use crate::strcur::StrCur;
 
 pub fn convert(src: &str) -> String {
     let mut result = String::new();
@@ -148,5 +95,11 @@ mod test_prepare {
         assert_eq!(s, String::from("abc"));
         let s = convert("！！/*！！*/！！");
         assert_eq!(s, String::from("!!/*！！*/!!"));
+        let s = convert("！！「！！」！！");
+        assert_eq!(s, String::from("!!「！！」!!"));
+        let s = convert("！！『！！』！！");
+        assert_eq!(s, String::from("!!『！！』!!"));
+        let s = convert("ＡＢＣ");
+        assert_eq!(s, String::from("ABC"));
     }
 }

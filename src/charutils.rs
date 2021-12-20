@@ -34,5 +34,6 @@ mod test_charutils {
         assert_eq!(to_half_ascii('！'), '!');
         assert_eq!(to_half_ascii('Ａ'), 'A');
         assert_eq!(to_half_ascii('＃'), '#');
+        assert_eq!(to_half_ascii('　'), ' ');
     }
 }
