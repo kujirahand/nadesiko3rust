@@ -73,6 +73,22 @@ impl StrCur {
         }
         result.iter().collect()
     }
+    pub fn get_range(&mut self, min:char, max:char) -> Vec<char> {
+        let mut result: Vec<char> = vec![];
+        while self.can_read() {
+            let ch = self.peek();
+            if min <= ch && ch <= max {
+                result.push(self.next());
+                continue;
+            }
+            break;
+        }
+        result
+    }
+    pub fn get_range_str(&mut self, min:char, max:char) -> String {
+        let s = self.get_range(min, max);
+        s.iter().collect()
+    }
     pub fn skip_space(&mut self) -> bool {
         let mut changed = false;
         loop {
@@ -184,5 +200,23 @@ mod test_prepare {
         assert_eq!(cur.get_token_str_tostr("/*"), "//abc\n\n");
         assert_eq!(cur.get_token_str_tostr("*/"), "fff");
         assert_eq!(cur.can_read(), false);
+    }
+    #[test]
+    fn get_str_test () {
+        // get_str
+        let mut cur = StrCur::from("aaa->bbb->ccc");
+        assert_eq!(cur.get_str(3), "aaa");
+        assert_eq!(cur.get_str(2), "->");
+        assert_eq!(cur.get_str(3), "bbb");
+        assert_eq!(cur.get_str(2), "->");
+        assert_eq!(cur.get_str(5), "ccc");
+    }
+    #[test]
+    fn get_range_test() {
+        let mut cur = StrCur::from("123abc456ccc");
+        assert_eq!(cur.get_range_str('0','9'), "123");
+        assert_eq!(cur.get_range_str('a','z'), "abc");
+        assert_eq!(cur.get_range_str('0','9'), "456");
+        assert_eq!(cur.get_range_str('a','z'), "ccc");
     }
 }

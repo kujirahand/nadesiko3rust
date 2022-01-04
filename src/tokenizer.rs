@@ -81,6 +81,10 @@ pub fn tokenize(src: &str) -> Vec<Token> {
             result.push(tok);
             continue;
         }
+        // number
+        if (ch >= '0') && (ch <= '9') {
+            
+        }
         
         // pass
         println!("pass:{}", ch);
