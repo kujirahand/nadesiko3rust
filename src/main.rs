@@ -5,4 +5,6 @@ mod tokenizer;
 
 fn main() {
     println!("Hello, world!");
+    let tokens = tokenizer::tokenize("//test");
+    println!("{:?}", tokens);
 }
