@@ -65,17 +65,27 @@ impl StrCur {
         self.index < self.length
     }
     pub fn eq_str(&self, target: &str) -> bool {
-        // 文字列の長さが異なる
-        if self.index + target.len() > self.length {
-            return false;
-        }
         // 一つずつ比較
         for (i, c) in target.chars().enumerate() {
-            if self.src[i + self.index] != c {
-                return false;
-            }
+            let index = i + self.index;
+            if index > self.length { return false; }
+            if self.src[index] != c { return false; }
         }
         true
+    }
+    pub fn peek_chars(&self, length: usize) -> Vec<char> {
+        let mut result: Vec<char> = vec![];
+        for i in 0..length {
+            let idx = i + self.index;
+            if idx >= self.length { break; }
+            let ch = self.src[idx];
+            result.push(ch);
+        }
+        result
+    }
+    pub fn peek_str(&self, length: usize) -> String {
+        let result = self.peek_chars(length);
+        result.iter().collect()
     }
     pub fn get_str(&mut self, length: usize) -> String {
         let mut result: Vec<char> = vec![];
@@ -194,6 +204,9 @@ mod test_prepare {
         assert_eq!(cur.eq_str("*/"), true);
         cur.seek(2);
         assert_eq!(cur.eq_str("ccc"), true);
+        //
+        let cur = StrCur::from("あいうえお");
+        assert_eq!(cur.eq_str("あいうえお"), true);
     }
     #[test]
     fn get_token_str_test () {
