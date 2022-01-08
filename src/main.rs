@@ -2,6 +2,7 @@ mod prepare;
 mod strcur;
 mod charutils;
 mod tokenizer;
+mod josi;
 
 fn main() {
     println!("Hello, world!");

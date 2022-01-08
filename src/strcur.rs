@@ -1,9 +1,12 @@
+/**
+ * 文字列をカーソルで操作する
+ */
 use crate::charutils;
 
 pub struct StrCur {
     pub src: Vec<char>,
-    pub index: usize,
-    pub length: usize,
+    length: usize, // private : user can not change
+    index: usize,
 }
 
 impl StrCur {
@@ -21,6 +24,11 @@ impl StrCur {
             return self.src[self.index];
         }
         '\0'
+    }
+    pub fn peek_in_range(&self, min: char, max: char) -> bool {
+        if !self.can_read() { return false; }
+        let ch = self.peek();
+        return (min <= ch) && (ch <= max)
     }
     pub fn next(&mut self) -> char {
         if self.can_read() {
@@ -42,6 +50,12 @@ impl StrCur {
                 self.index -= iv;
             }
         }
+    }
+    pub fn set_index(&mut self, index: usize) {
+        self.index = index;
+    }
+    pub fn get_index(&mut self) -> usize {
+        self.index
     }
     pub fn peek_half(&self) -> char {
         let ch = self.peek();

@@ -1,3 +1,8 @@
+/**
+ * charutils.rs
+ * 半角変換変換用
+ */
+
 use std::char;
 pub fn is_half(c: char) -> bool {
     (c as u32) < 0xF0u32

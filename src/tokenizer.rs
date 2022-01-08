@@ -28,6 +28,7 @@ impl TokenInfo {
 pub enum Token {
     Comment(TokenInfo),
     Eol(TokenInfo),
+    Int(TokenInfo),
     Number(TokenInfo),
     String(TokenInfo),
     StringEx(TokenInfo),
@@ -42,7 +43,7 @@ pub fn tokenize(src: &str) -> Vec<Token> {
     let mut line = 0;
     while cur.can_read() {
         if cur.skip_space() { continue; }
-        let ch = cur.peek_half();
+        let ch = cur.peek();
         if ch == '\n' {
             let lf = cur.next();
             let tok = Token::Eol(TokenInfo::new_label_char(lf, line));
@@ -83,7 +84,24 @@ pub fn tokenize(src: &str) -> Vec<Token> {
         }
         // number
         if (ch >= '0') && (ch <= '9') {
-            
+            let nums = cur.get_range_str('0', '9');
+            // 少数点以下
+            if cur.peek() == '.' {
+                cur.next();
+                if cur.peek_in_range('0', '9') {
+                    let ap_nums = cur.get_range_str('0', '9');
+                    let v = format!("{}.{}", nums, ap_nums);
+                    let tok = Token::Number(TokenInfo::new_label(v, line));
+                    // read josi
+                    result.push(tok);
+                    continue;
+                }
+                cur.seek(-1);
+            }
+            let tok = Token::Int(TokenInfo::new_label(nums, line));
+            // read josi
+            result.push(tok);
+            continue;
         }
         
         // pass
