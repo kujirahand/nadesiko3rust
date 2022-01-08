@@ -68,7 +68,7 @@ impl StrCur {
         // 一つずつ比較
         for (i, c) in target.chars().enumerate() {
             let index = i + self.index;
-            if index > self.length { return false; }
+            if index >= self.length { return false; }
             if self.src[index] != c { return false; }
         }
         true

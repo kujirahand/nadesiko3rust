@@ -2,8 +2,8 @@
 // @see https://github.com/kujirahand/nadesiko3/blob/master/src/nako_josi_list.js
 use crate::strcur::StrCur;
 
-// 助詞のバイト数(文字数ではない)を調べる、助詞がなければ0を返す
-pub fn is_josi(cur: &StrCur) -> usize {
+// 助詞を返す、助詞でなければ0を返す
+pub fn read_josi(cur: &mut StrCur) -> Option<String> {
     let josi_list = [
         // もし文で使う[助詞]
         "でなければ", "なければ", "ならば", "なら", "たら", "れば",
@@ -20,10 +20,10 @@ pub fn is_josi(cur: &StrCur) -> usize {
     ];
     for josi in josi_list {
       if cur.eq_str(josi) {
-        return josi.len();
+        return Some(String::from(josi));
       }
     }
-    0
+    None
 }
 
 // 「もし」文で使う助詞かどうか
@@ -54,12 +54,13 @@ mod test_josi {
     #[test]
     fn is_josi_test() {
         // 文字はUTF-8の
-        let cur = StrCur::from("について");
-        assert_eq!(is_josi(&cur), 4 * 3);
+        let mut cur = StrCur::from("について");
+        assert_eq!(read_josi(&mut cur), Some(String::from("について")));
         //
         let mut cur = StrCur::from("Aでなければ");
+        assert_eq!(read_josi(&mut cur), None);
         cur.next(); // skip A
-        assert_eq!(is_josi(&cur), 5 * 3);
+        assert_eq!(read_josi(&mut cur), Some(String::from("でなければ")));
     }
 
     fn is_josi_mosi_test() {

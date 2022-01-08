@@ -1,25 +1,25 @@
 use crate::prepare;
 use crate::strcur::StrCur;
+use crate::josi;
 
 #[derive(Debug)]
 pub struct TokenInfo {
     pub label: String,
-    pub josi: String,
+    pub josi: Option<String>,
     pub line: u32,
 }
-
 impl TokenInfo {
-    pub fn new(label: String, josi: String, line: u32) -> Self {
+    pub fn new(label: String, josi: Option<String>, line: u32) -> Self {
         Self {label: label, josi: josi, line: line}
     }
     pub fn new_label(label: String, line: u32) -> Self {
-        Self {label: label, josi: String::new(), line: line}
+        Self {label: label, josi: None, line: line}
     }
     pub fn new_label_str(label: &str, line: u32) -> Self {
-        Self {label: String::from(label), josi: String::new(), line: line}
+        Self {label: String::from(label), josi: None, line: line}
     }
     pub fn new_label_char(label: char, line: u32) -> Self {
-        Self {label: String::from(label), josi: String::new(), line: line}
+        Self {label: String::from(label), josi: None, line: line}
     }
 }
 
@@ -28,12 +28,38 @@ impl TokenInfo {
 pub enum Token {
     Comment(TokenInfo),
     Eol(TokenInfo),
-    Int(TokenInfo),
-    Number(TokenInfo),
+    Int(TokenInfo, i64),
+    Number(TokenInfo, f64),
     String(TokenInfo),
     StringEx(TokenInfo),
     Word(TokenInfo),
     Flag(TokenInfo),
+    ParenL(TokenInfo),
+    ParenR(TokenInfo),
+}
+impl std::fmt::Display for Token {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Token::Comment(t) => write!(f, "Comment:{}", t.label),
+            Token::Eol(_) => write!(f, "Eol"),
+            Token::Int(t, _) => write!(f, "Int:{}", t.label),
+            Token::Number(t, _) => write!(f, "Number:{}", t.label),
+            Token::String(t) => write!(f, "String:{}", t.label),
+            Token::StringEx(t) => write!(f, "StringEx:{}", t.label),
+            Token::Word(t) => write!(f, "Word:{}", t.label),
+            Token::Flag(t) => write!(f, "Flag:{}", t.label),
+            _ => write!(f, "{:?}", self),
+        }
+    }
+}
+
+pub fn tokens_string(vt: &Vec<Token>) -> String {
+    let mut res = String::new();
+    for tok in vt.iter() {
+        let s = format!("[{}]", tok);
+        res.push_str(&s);
+    }
+    format!("{}", res)
 }
 
 pub fn tokenize(src: &str) -> Vec<Token> {
@@ -44,66 +70,13 @@ pub fn tokenize(src: &str) -> Vec<Token> {
     while cur.can_read() {
         if cur.skip_space() { continue; }
         let ch = cur.peek();
-        if ch == '\n' {
-            let lf = cur.next();
-            let tok = Token::Eol(TokenInfo::new_label_char(lf, line));
-            result.push(tok);
-            line += 1;
-            continue;
+        match ch {
+            '\n' => { result.push(read_lf(&mut cur, &mut line)); continue; },
+            '/' => { result.push(read_slash(&mut cur, &mut line)); continue; },
+            '(' => { result.push(Token::ParenL(TokenInfo::new_label_char(cur.next(), line))); continue; }
+            '0'..='9' => { result.push(read_number(&mut cur, &mut line)); continue; },
+            _ => {}
         }
-        if ch == '/' {
-            // line comment
-            if cur.eq_str("//") {
-                cur.seek(2); // skip "//"
-                let rem = cur.get_token_tostr('\n');
-                let tok = Token::Comment(TokenInfo::new_label(rem, line));
-                result.push(tok);
-                line += 1;
-                continue;
-            }
-            // range comment
-            if cur.eq_str("/*") {
-                cur.seek(2); // skio "/*"
-                let rem = cur.get_token_str("*/");
-                println!("@@@{}@@@", rem.iter().collect::<String>());
-                let mut ret_cnt = 0;
-                for c in rem.iter() {
-                    if *c == '\n' { ret_cnt += 1; }
-                }
-                let rem_s = rem.iter().collect();
-                let tok = Token::Comment(TokenInfo::new_label(rem_s, line));
-                result.push(tok);
-                line += ret_cnt;
-                continue;
-            }
-            // flag
-            let flag = cur.next();
-            let tok = Token::Flag(TokenInfo::new_label_char(flag, line));
-            result.push(tok);
-            continue;
-        }
-        // number
-        if (ch >= '0') && (ch <= '9') {
-            let nums = cur.get_range_str('0', '9');
-            // 少数点以下
-            if cur.peek() == '.' {
-                cur.next();
-                if cur.peek_in_range('0', '9') {
-                    let ap_nums = cur.get_range_str('0', '9');
-                    let v = format!("{}.{}", nums, ap_nums);
-                    let tok = Token::Number(TokenInfo::new_label(v, line));
-                    // read josi
-                    result.push(tok);
-                    continue;
-                }
-                cur.seek(-1);
-            }
-            let tok = Token::Int(TokenInfo::new_label(nums, line));
-            // read josi
-            result.push(tok);
-            continue;
-        }
-        
         // pass
         println!("pass:{}", ch);
         cur.next();
@@ -111,23 +84,60 @@ pub fn tokenize(src: &str) -> Vec<Token> {
     result
 }
 
-pub fn tokens_string(vt: &Vec<Token>) -> String {
-    let mut res = String::new();
-    for tok in vt.iter() {
-        let s: String = match tok {
-            Token::Comment(t) => format!("Comment:{}", t.label),
-            Token::Eol(_) => format!("Eol"),
-            Token::Number(t) => format!("Number:{}", t.label),
-            Token::String(t) => format!("String:{}", t.label),
-            Token::StringEx(t) => format!("StringEx:{}", t.label),
-            Token::Word(t) => format!("Word:{}", t.label),
-            Token::Flag(t) => format!("Flag:{}", t.label),
-            _ => format!("{:?}",tok),
-        };
-        let s = format!("[{}]", s);
-        res.push_str(&s);
+fn read_lf(cur: &mut StrCur, line: &mut u32) -> Token {
+    let lf = cur.next();
+    let tok = Token::Eol(TokenInfo::new_label_char(lf, *line));
+    *line += 1;
+    tok
+}
+
+fn read_slash(cur: &mut StrCur, line: &mut u32) -> Token {
+    // line comment
+    if cur.eq_str("//") {
+        cur.seek(2); // skip "//"
+        let rem = cur.get_token_tostr('\n');
+        let tok = Token::Comment(TokenInfo::new_label(rem, *line));
+        *line += 1;
+        return tok;
     }
-    format!("{}", res)
+    // range comment
+    if cur.eq_str("/*") {
+        cur.seek(2); // skio "/*"
+        let rem = cur.get_token_str("*/");
+        let mut ret_cnt = 0;
+        for c in rem.iter() {
+            if *c == '\n' { ret_cnt += 1; }
+        }
+        let rem_s = rem.iter().collect();
+        let tok = Token::Comment(TokenInfo::new_label(rem_s, *line));
+        *line += ret_cnt;
+        return tok;
+    }
+    // flag
+    let flag = cur.next();
+    let tok = Token::Flag(TokenInfo::new_label_char(flag, *line));
+    tok
+}
+
+fn read_number(cur: &mut StrCur, line: &mut u32) -> Token {
+    let mut vc: Vec<char> = vec![];
+    while cur.peek_in_range('0', '9') {
+        vc.push(cur.next());
+    }
+    if cur.peek() == '.' {
+        vc.push(cur.next());
+        while cur.peek_in_range('0', '9') {
+            vc.push(cur.next());
+        }
+        let num_s: String = vc.iter().collect();
+        let num_f: f64 = num_s.parse().unwrap_or(0.0);
+        let josi_opt = josi::read_josi(cur);
+        return Token::Number(TokenInfo::new(num_s, josi_opt, *line), num_f);
+    }
+    let num_s: String = vc.iter().collect();
+    let num_i: i64 = num_s.parse().unwrap_or(0);
+    let josi_opt = josi::read_josi(cur);
+    return Token::Int(TokenInfo::new(num_s, josi_opt, *line), num_i);
 }
 
 #[cfg(test)]
@@ -137,7 +147,9 @@ mod test_tokenizer {
     fn test_tokenize() {
         let t = tokenize("//abc");
         assert_eq!(tokens_string(&t), "[Comment:abc]");
-        //let t = tokenize("//abc\n\n/*ABC*/");
-        //assert_eq!(tokens_string(&t), "[Comment:abc][Eol][Comment:ABC]");
+        let t = tokenize("//abc\n\n/*ABC*/");
+        assert_eq!(tokens_string(&t), "[Comment:abc][Eol][Comment:ABC]");
+        let t = tokenize("3\n3.14");
+        assert_eq!(tokens_string(&t), "[Int:3][Eol][Number:3.14]");
     }
 }
