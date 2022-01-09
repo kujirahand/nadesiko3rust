@@ -1,5 +1,6 @@
 use crate::prepare;
 use crate::strcur::StrCur;
+use crate::charutils;
 use crate::josi;
 
 #[derive(Debug)]
@@ -75,6 +76,8 @@ pub fn tokenize(src: &str) -> Vec<Token> {
             '/' => { result.push(read_slash(&mut cur, &mut line)); continue; },
             '(' => { result.push(Token::ParenL(TokenInfo::new_label_char(cur.next(), line))); continue; }
             '0'..='9' => { result.push(read_number(&mut cur, &mut line)); continue; },
+            'a'..='z' | 'A'..='Z' | '_' => { result.push(read_word(&mut cur, &mut line)); continue; }
+            n if n > (0xE0 as char) => { result.push(read_word(&mut cur, &mut line)); continue; }
             _ => {}
         }
         // pass
@@ -139,6 +142,21 @@ fn read_number(cur: &mut StrCur, line: &mut u32) -> Token {
     let josi_opt = josi::read_josi(cur);
     return Token::Int(TokenInfo::new(num_s, josi_opt, *line), num_i);
 }
+
+fn read_word(cur: &mut StrCur, line: &mut u32) -> Token {
+    let mut word: Vec<char> = vec![];
+    loop {
+        let c = cur.peek();
+        if charutils::is_alpha(c) {
+            word.push(cur.next());
+            continue;
+        }
+        break;
+    }
+    let word_s = word.iter().collect();
+    Token::Word(TokenInfo::new_label(word_s, *line))
+}
+
 
 #[cfg(test)]
 mod test_tokenizer {

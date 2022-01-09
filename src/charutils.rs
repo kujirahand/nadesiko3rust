@@ -8,6 +8,24 @@ pub fn is_half(c: char) -> bool {
     (c as u32) < 0xF0u32
 }
 
+macro_rules! in_range {
+    ( $v:expr => $( $a:expr ),* ) => {
+        $( ($a).contains( & $v ) || )* false
+    };
+}
+
+pub fn is_alpha(c: char) -> bool {
+    in_range![c => 'a'..='z', 'A'..='Z']
+}
+
+pub fn is_numeric(c: char) -> bool {
+    ('0'..='9').contains(&c)
+}
+
+pub fn is_word_chars(c: char) -> bool {
+    in_range![c => 'a'..='z', 'A'..='Z', '_'..='_', '0'..='9']
+}
+
 pub fn char_from_u32(i: u32, def: char) -> char {
     char::from_u32(i).unwrap_or(def)
 }
@@ -40,5 +58,12 @@ mod test_charutils {
         assert_eq!(to_half_ascii('Ａ'), 'A');
         assert_eq!(to_half_ascii('＃'), '#');
         assert_eq!(to_half_ascii('　'), ' ');
+    }
+    #[test]
+    fn test_range() {
+        assert_eq!(is_alpha('a'), true);
+        assert_eq!(is_alpha('B'), true);
+        assert_eq!(is_alpha('3'), false);
+        assert_eq!(is_alpha('$'), false);
     }
 }
