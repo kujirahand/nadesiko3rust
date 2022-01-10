@@ -22,6 +22,12 @@ pub fn is_numeric(c: char) -> bool {
     ('0'..='9').contains(&c)
 }
 
+pub fn is_hiragana(c: char) -> bool {
+    // 3041-309F
+    ('ぁ'..='ゟ').contains(&c)
+}
+
+
 pub fn is_word_chars(c: char) -> bool {
     if in_range![c => 'a'..='z', 'A'..='Z', '_'..='_', '0'..='9'] { return true; }
     if (c as u32) >= 0xE0 { return true; }

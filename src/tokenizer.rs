@@ -43,16 +43,24 @@ pub enum Token {
     CurBracketR(TokenInfo),
 }
 impl std::fmt::Display for Token {
+
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        // 
+        let get_value = |t: &TokenInfo| -> String {
+            match &t.josi {
+                Some(j) => { format!("{}/{}", t.label, j) },
+                None    => { format!("{}", t.label) },
+            }
+        };
         match self {
-            Token::Comment(t) => write!(f, "Comment:{}", t.label),
+            Token::Comment(t) => write!(f, "Comment:{}", get_value(t)),
             Token::Eol(_) => write!(f, "Eol"),
-            Token::Int(t, _) => write!(f, "Int:{}", t.label),
-            Token::Number(t, _) => write!(f, "Number:{}", t.label),
-            Token::String(t) => write!(f, "String:{}", t.label),
-            Token::StringEx(t) => write!(f, "StringEx:{}", t.label),
-            Token::Word(t) => write!(f, "Word:{}", t.label),
-            Token::Flag(t) => write!(f, "Flag:{}", t.label),
+            Token::Int(t, _) => write!(f, "Int:{}", get_value(t)),
+            Token::Number(t, _) => write!(f, "Number:{}", get_value(t)),
+            Token::String(t) => write!(f, "String:{}", get_value(t)),
+            Token::StringEx(t) => write!(f, "StringEx:{}", get_value(t)),
+            Token::Word(t) => write!(f, "Word:{}", get_value(t)),
+            Token::Flag(t) => write!(f, "Flag:{}", get_value(t)),
             _ => write!(f, "{:?}", self),
         }
     }
@@ -161,16 +169,33 @@ fn read_number(cur: &mut StrCur, line: &mut u32) -> Token {
 
 fn read_word(cur: &mut StrCur, line: &mut u32) -> Token {
     let mut word: Vec<char> = vec![];
-    loop {
+    let mut josi_opt:Option<String> = None;
+    
+    // ひらがなスタートなら1文字目は助詞にならない
+    if charutils::is_hiragana(cur.peek()) {
+        word.push(cur.next());
+    }
+    
+    while cur.can_read() {
         let c = cur.peek();
+        // 助詞か？
+        if charutils::is_hiragana(c) {
+            josi_opt = josi::read_josi(cur);
+            match josi_opt {
+                Some(_) => break, // 助詞なら繰り返しを抜ける
+                None => {}, // pass
+            }
+        }
+        // wordになり得る文字か？
         if charutils::is_word_chars(c) {
             word.push(cur.next());
+            println!("read:{}", c);
             continue;
         }
         break;
     }
     let word_s = word.iter().collect();
-    Token::Word(TokenInfo::new_label(word_s, *line))
+    Token::Word(TokenInfo::new(word_s, josi_opt, *line))
 }
 
 
@@ -189,5 +214,12 @@ mod test_tokenizer {
         assert_eq!(tokens_string(&t), "[Word:hoge][Flag:=][Int:35]");
         let t = tokenize("年齢=15");
         assert_eq!(tokens_string(&t), "[Word:年齢][Flag:=][Int:15]");
+    }
+    #[test]
+    fn test_tokenize_josi() {
+        let t = tokenize("AからBまで");
+        assert_eq!(tokens_string(&t), "[Word:A/から][Word:B/まで]");
+        let t = tokenize("犬をネコへ");
+        assert_eq!(tokens_string(&t), "[Word:犬/を][Word:ネコ/へ]");
     }
 }

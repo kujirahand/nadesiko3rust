@@ -20,6 +20,7 @@ pub fn read_josi(cur: &mut StrCur) -> Option<String> {
     ];
     for josi in josi_list {
       if cur.eq_str(josi) {
+        cur.seek(josi.chars().count() as i32);
         return Some(String::from(josi));
       }
     }
