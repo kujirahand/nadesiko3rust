@@ -2,7 +2,9 @@ mod prepare;
 mod strcur;
 mod charutils;
 mod tokenizer;
-mod josi;
+mod josi_list;
+mod parser;
+mod reserved_words;
 
 fn main() {
     println!("Hello, world!");

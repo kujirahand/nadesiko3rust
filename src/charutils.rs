@@ -27,7 +27,6 @@ pub fn is_hiragana(c: char) -> bool {
     ('ぁ'..='ゟ').contains(&c)
 }
 
-
 pub fn is_word_chars(c: char) -> bool {
     if in_range![c => 'a'..='z', 'A'..='Z', '_'..='_', '0'..='9'] { return true; }
     if (c as u32) >= 0xE0 { return true; }
