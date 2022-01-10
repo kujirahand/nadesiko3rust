@@ -23,7 +23,9 @@ pub fn is_numeric(c: char) -> bool {
 }
 
 pub fn is_word_chars(c: char) -> bool {
-    in_range![c => 'a'..='z', 'A'..='Z', '_'..='_', '0'..='9']
+    if in_range![c => 'a'..='z', 'A'..='Z', '_'..='_', '0'..='9'] { return true; }
+    if (c as u32) >= 0xE0 { return true; }
+    return false;
 }
 
 pub fn char_from_u32(i: u32, def: char) -> char {

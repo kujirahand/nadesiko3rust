@@ -37,6 +37,10 @@ pub enum Token {
     Flag(TokenInfo),
     ParenL(TokenInfo),
     ParenR(TokenInfo),
+    BracketL(TokenInfo),
+    BracketR(TokenInfo),
+    CurBracketL(TokenInfo),
+    CurBracketR(TokenInfo),
 }
 impl std::fmt::Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -74,7 +78,19 @@ pub fn tokenize(src: &str) -> Vec<Token> {
         match ch {
             '\n' => { result.push(read_lf(&mut cur, &mut line)); continue; },
             '/' => { result.push(read_slash(&mut cur, &mut line)); continue; },
-            '(' => { result.push(Token::ParenL(TokenInfo::new_label_char(cur.next(), line))); continue; }
+            '(' => { result.push(Token::ParenL(TokenInfo::new_label_char(cur.next(), line))); continue; },
+            ')' => { result.push(Token::ParenR(TokenInfo::new_label_char(cur.next(), line))); continue; },
+            '[' => { result.push(Token::BracketL(TokenInfo::new_label_char(cur.next(), line))); continue; },
+            ']' => { result.push(Token::BracketR(TokenInfo::new_label_char(cur.next(), line))); continue; },
+            '\\' => { result.push(Token::Flag(TokenInfo::new_label_char(cur.next(), line))); continue; },
+            '^' => { result.push(Token::Flag(TokenInfo::new_label_char(cur.next(), line))); continue; },
+            '`' => { result.push(Token::Flag(TokenInfo::new_label_char(cur.next(), line))); continue; },
+            '{' => { result.push(Token::CurBracketL(TokenInfo::new_label_char(cur.next(), line))); continue; },
+            '}' => { result.push(Token::CurBracketR(TokenInfo::new_label_char(cur.next(), line))); continue; },
+            '|' => { result.push(Token::Flag(TokenInfo::new_label_char(cur.next(), line))); continue; },
+            '~' => { result.push(Token::Flag(TokenInfo::new_label_char(cur.next(), line))); continue; },
+            '!'..='.' => { result.push(Token::Flag(TokenInfo::new_label_char(cur.next(), line))); continue; },
+            ':'..='@' => { result.push(Token::Flag(TokenInfo::new_label_char(cur.next(), line))); continue; },
             '0'..='9' => { result.push(read_number(&mut cur, &mut line)); continue; },
             'a'..='z' | 'A'..='Z' | '_' => { result.push(read_word(&mut cur, &mut line)); continue; }
             n if n > (0xE0 as char) => { result.push(read_word(&mut cur, &mut line)); continue; }
@@ -147,7 +163,7 @@ fn read_word(cur: &mut StrCur, line: &mut u32) -> Token {
     let mut word: Vec<char> = vec![];
     loop {
         let c = cur.peek();
-        if charutils::is_alpha(c) {
+        if charutils::is_word_chars(c) {
             word.push(cur.next());
             continue;
         }
@@ -169,5 +185,9 @@ mod test_tokenizer {
         assert_eq!(tokens_string(&t), "[Comment:abc][Eol][Comment:ABC]");
         let t = tokenize("3\n3.14");
         assert_eq!(tokens_string(&t), "[Int:3][Eol][Number:3.14]");
+        let t = tokenize("hoge=35");
+        assert_eq!(tokens_string(&t), "[Word:hoge][Flag:=][Int:35]");
+        let t = tokenize("年齢=15");
+        assert_eq!(tokens_string(&t), "[Word:年齢][Flag:=][Int:15]");
     }
 }
