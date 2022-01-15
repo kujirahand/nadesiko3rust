@@ -43,12 +43,15 @@ pub enum TokenKind {
     StringEx,
     Word,
     Flag,
+    Eq,
     ParenL,
     ParenR,
     BracketL,
     BracketR,
     CurBracketL,
     CurBracketR,
+    BlockBegin,
+    BlockEnd,
     If,
     Repeat,
 }
@@ -74,14 +77,17 @@ impl std::fmt::Display for Token {
             TokenKind::Flag => write!(f, "Flag:{}", get_value(t)),
             TokenKind::ParenL => write!(f, "ParenL:{}", get_value(t)),
             TokenKind::ParenR => write!(f, "ParenR:{}", get_value(t)),
+            TokenKind::Eq => write!(f, "Eq"),
             TokenKind::If => write!(f, "If"),
             TokenKind::Repeat => write!(f, "Repeat"),
+            TokenKind::BlockBegin => write!(f, "ここから"),
+            TokenKind::BlockEnd => write!(f, "ここまで"),
             _ => write!(f, "{:?}", self),
         }
     }
 }
 
-pub fn tokens_string(vt: &Vec<Token>) -> String {
+pub fn tokens_string(vt: &[Token]) -> String {
     let mut res = String::new();
     for tok in vt.iter() {
         let s = format!("[{}]", tok);
@@ -136,6 +142,7 @@ pub fn tokenize(src: &str) -> Vec<Token> {
             ')' => { flag_push_josi!(TokenKind::ParenR, result, cur, line); continue; },
             '[' => { flag_push!(TokenKind::BracketL, result, cur, line); continue; },
             ']' => { flag_push_josi!(TokenKind::BracketR, result, cur, line); continue; },
+            '=' => { flag_push_josi!(TokenKind::Eq, result, cur, line); continue; },
             '\\' => { flag_push!(TokenKind::Flag, result, cur, line); continue; },
             '^' => { flag_push!(TokenKind::Flag, result, cur, line); continue; },
             '`' => { flag_push!(TokenKind::Flag, result, cur, line); continue; },
@@ -213,6 +220,18 @@ fn read_number(cur: &mut StrCur, line: &mut u32) -> Token {
 fn read_word(cur: &mut StrCur, line: &mut u32) -> Token {
     let mut word: Vec<char> = vec![];
     let mut josi_opt:Option<String> = None;
+
+    // 特別な語句を例外で登録する
+    if cur.eq_str("ここ") {        
+        if cur.eq_str("ここまで") {
+            cur.seek(4);
+            return Token::new_str(TokenKind::BlockEnd, "ここまで", *line);
+        }
+        if cur.eq_str("ここから") {
+            cur.seek(4);
+            return Token::new_str(TokenKind::BlockEnd, "ここから", *line);
+        }
+    }
     
     // ひらがなスタートなら1文字目は助詞にならない
     if charutils::is_hiragana(cur.peek()) {
@@ -315,13 +334,13 @@ mod test_tokenizer {
         let t = tokenize("3\n3.14");
         assert_eq!(tokens_string(&t), "[Int:3][Eol][Number:3.14]");
         let t = tokenize("hoge=35");
-        assert_eq!(tokens_string(&t), "[Word:hoge][Flag:=][Int:35]");
+        assert_eq!(tokens_string(&t), "[Word:hoge][Eq][Int:35]");
         let t = tokenize("年齢=15");
-        assert_eq!(tokens_string(&t), "[Word:年齢][Flag:=][Int:15]");
+        assert_eq!(tokens_string(&t), "[Word:年齢][Eq][Int:15]");
         let t = tokenize("(3.0)");
         assert_eq!(tokens_string(&t), "[ParenL:(][Number:3.0][ParenR:)]");
         let t = tokenize("A=3*5");
-        assert_eq!(tokens_string(&t), "[Word:A][Flag:=][Int:3][Flag:*][Int:5]");
+        assert_eq!(tokens_string(&t), "[Word:A][Eq][Int:3][Flag:*][Int:5]");
     }
     #[test]
     fn test_tokenize_josi() {

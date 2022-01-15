@@ -6,6 +6,7 @@ use crate::tokenizer::TokenKind;
 pub fn check_kind(s: &str) -> TokenKind {
     if s == "もし" { return TokenKind::If }
     if s == "回" { return TokenKind::Repeat }
+    if s == "ここまで" { return TokenKind::BlockEnd }
     // todo
     TokenKind::Word
 }

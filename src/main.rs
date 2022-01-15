@@ -9,7 +9,8 @@ mod tokencur;
 mod reserve_word;
 
 fn main() {
-    println!("Hello, world!");
     let tokens = tokenizer::tokenize("//test");
-    println!("{:?}", tokens);
+    let mut parser = parser::Parser::new(tokens, "hoge");
+    parser.parse();
+    println!("{:?}", parser.nodes);
 }

@@ -3,7 +3,7 @@ use crate::tokenizer::{self,Token,TokenKind};
 #[derive(Debug)]
 pub struct TokenCur {
     pub tokens: Vec<Token>,
-    index: usize,
+    pub index: usize,
     length: usize,
 }
 
@@ -21,12 +21,36 @@ impl TokenCur {
         return self.index < self.length
     }
 
-    pub fn peek(&self) -> TokenKind {
+    pub fn seek(&mut self, value: i32) {
+        let mut index2 = self.index as isize + value as isize;
+        if index2 < 0 { index2 = 0; }
+        if index2 >= self.length as isize { index2 = self.length as isize; }
+        self.index = index2 as usize;
+    }
+
+    pub fn eq_kind(&self, kind: TokenKind) -> bool {
+        self.peek_kind() == kind
+    }
+
+    pub fn peek_kind(&self) -> TokenKind {
         let t = &self.tokens[self.index];
         t.kind
     }
 
-    pub fn next(&mut self) -> TokenKind {
+    pub fn peek(&self) -> Token {
+        if !self.can_read() { return Token::new_str(TokenKind::None, "", 0); }
+        let t = &self.tokens[self.index];
+        t.clone()
+    }
+
+    pub fn next(&mut self) -> Token {
+        if !self.can_read() { return Token::new_str(TokenKind::None, "", 0); }
+        let t = &self.tokens[self.index];
+        self.index += 1;
+        t.clone()
+    }
+
+    pub fn next_kind(&mut self) -> TokenKind {
         if !self.can_read() { return TokenKind::None; }
         let t = &self.tokens[self.index];
         self.index += 1;
@@ -52,12 +76,12 @@ mod test_tokencur {
     fn test_tokencur1() {
         let t = tokenizer::tokenize("123 'abc'");
         let cur = TokenCur::new(t);
-        assert_eq!(cur.peek(), TokenKind::Int);
+        assert_eq!(cur.peek_kind(), TokenKind::Int);
         assert_eq!(cur.eq_kinds(&[TokenKind::Int, TokenKind::String]), true);
         //
         let t = tokenizer::tokenize("123回");
         let mut cur = TokenCur::new(t);
-        assert_eq!(cur.next(), TokenKind::Int);
-        assert_eq!(cur.next(), TokenKind::Repeat);
+        assert_eq!(cur.next_kind(), TokenKind::Int);
+        assert_eq!(cur.next_kind(), TokenKind::Repeat);
     }
 }
