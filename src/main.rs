@@ -5,6 +5,8 @@ mod tokenizer;
 mod josi_list;
 mod parser;
 mod reserved_words;
+mod tokencur;
+mod reserve_word;
 
 fn main() {
     println!("Hello, world!");

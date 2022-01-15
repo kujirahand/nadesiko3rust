@@ -2,50 +2,39 @@ use crate::prepare;
 use crate::strcur::StrCur;
 use crate::charutils;
 use crate::josi_list;
+use crate::reserve_word;
 
 #[derive(Debug,Clone)]
-pub struct TokenInfo {
+pub struct Token {
+    pub kind: TokenKind,
     pub label: String,
     pub josi: Option<String>,
     pub line: u32,
 }
-impl TokenInfo {
-    pub fn new(label: String, josi: Option<String>, line: u32) -> Self {
-        Self {label: label, josi: josi, line: line}
-    }
-    pub fn new_label(label: String, line: u32) -> Self {
-        Self {label: label, josi: None, line: line}
-    }
-    pub fn new_label_str(label: &str, line: u32) -> Self {
-        Self {label: String::from(label), josi: None, line: line}
-    }
-    pub fn new_label_char(label: char, line: u32) -> Self {
-        Self {label: String::from(label), josi: None, line: line}
-    }
-}
-
-#[allow(dead_code)]
-#[derive(Debug,Clone)]
-pub struct Token {
-    pub info: TokenInfo,
-    pub kind: TokenKind,
-}
 impl Token {
+    pub fn new(kind: TokenKind, label: String, josi: Option<String>, line: u32) -> Self {
+        Self { kind, label, josi, line }
+    }
     pub fn new_char(kind: TokenKind, label: char, line: u32) -> Self {
-        let info = TokenInfo::new_label_char(label, line);
-        Self { info, kind }
+        Self {
+            kind,
+            label: String::from(label),
+            josi: None,
+            line,
+        }
     }
     pub fn new_str(kind: TokenKind, label: &str, line: u32) -> Self {
-        let info = TokenInfo::new_label_str(label, line);
-        Self { info, kind }
-    }
-    pub fn new(kind: TokenKind, label: String, josi: Option<String>, line: u32) -> Self {
-        let info = TokenInfo::new(label, josi, line);
-        Self { info, kind }
+        Self {
+            kind,
+            label: String::from(label),
+            josi: None,
+            line,
+        }
     }
 }
-#[derive(Debug,Clone)]
+#[derive(Debug,Clone,PartialEq,Copy)]
 pub enum TokenKind {
+    None,
     Comment,
     Eol,
     Int,
@@ -60,18 +49,21 @@ pub enum TokenKind {
     BracketR,
     CurBracketL,
     CurBracketR,
+    If,
+    Repeat,
 }
 impl std::fmt::Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         // 助詞の有無に生じて出力方式を変更する
-        let get_value = |t: &TokenInfo| -> String {
+        let get_value = |t: &Token| -> String {
             match &t.josi {
                 Some(j) => { format!("{}/{}", t.label, j) },
                 None    => { format!("{}", t.label) },
             }
         };
-        let t = &self.info;
+        let t = &self;
         match self.kind {
+            TokenKind::None => write!(f, "None"),
             TokenKind::Comment => write!(f, "Comment:{}", get_value(t)),
             TokenKind::Eol => write!(f, "Eol"),
             TokenKind::Int => write!(f, "Int:{}", get_value(t)),
@@ -82,6 +74,8 @@ impl std::fmt::Display for Token {
             TokenKind::Flag => write!(f, "Flag:{}", get_value(t)),
             TokenKind::ParenL => write!(f, "ParenL:{}", get_value(t)),
             TokenKind::ParenR => write!(f, "ParenR:{}", get_value(t)),
+            TokenKind::If => write!(f, "If"),
+            TokenKind::Repeat => write!(f, "Repeat"),
             _ => write!(f, "{:?}", self),
         }
     }
@@ -100,8 +94,10 @@ pub fn tokens_string(vt: &Vec<Token>) -> String {
 macro_rules! flag_push {
     ( $type:expr, $result:expr, $cur: expr, $line: expr ) => {
         let tok = Token {
-            info: TokenInfo::new_label_char($cur.next(), $line),
             kind: $type,
+            label: String::from($cur.next()),
+            josi: None,
+            line: $line,
         };
         $result.push(tok);
     };
@@ -109,11 +105,12 @@ macro_rules! flag_push {
 macro_rules! flag_push_josi {
     ( $type:expr, $result:expr, $cur: expr, $line: expr ) => {
         let label = String::from($cur.next());
-        let tok = josi_list::read_josi(&mut $cur);
-        let token_info = TokenInfo::new(label, tok, $line);
+        let josi_opt = josi_list::read_josi(&mut $cur);
         let tok = Token {
-            info: token_info,
             kind: $type,
+            label,
+            josi: josi_opt,
+            line: $line,
         };
         $result.push(tok);
     };
@@ -131,6 +128,10 @@ pub fn tokenize(src: &str) -> Vec<Token> {
         match ch {
             '\n' => { result.push(read_lf(&mut cur, &mut line)); continue; },
             '/' => { result.push(read_slash(&mut cur, &mut line)); continue; },
+            '「' => { result.push(read_string(&mut cur, &mut line, '」', true)); continue; }
+            '『' => { result.push(read_string(&mut cur, &mut line, '』', false)); continue; }
+            '"' => { result.push(read_string(&mut cur, &mut line, '"', true)); continue; }
+            '\'' => { result.push(read_string(&mut cur, &mut line, '\'', false)); continue; }
             '(' => { flag_push!(TokenKind::ParenL, result, cur, line); continue; },
             ')' => { flag_push_josi!(TokenKind::ParenR, result, cur, line); continue; },
             '[' => { flag_push!(TokenKind::BracketL, result, cur, line); continue; },
@@ -235,9 +236,71 @@ fn read_word(cur: &mut StrCur, line: &mut u32) -> Token {
         }
         break;
     }
-    let word_s = word.iter().collect();
-    Token::new(TokenKind::Word, word_s, josi_opt, *line)
+    
+    // 送りがなをカット
+    word = delete_okurigana(word);
+    let word_s: String = word.iter().collect();
+    let kind = reserve_word::check_kind(&word_s);
+    Token::new(kind, word_s, josi_opt, *line)
 }
+
+fn delete_okurigana(word: Vec<char>) -> Vec<char> {
+    // 1文字なら送りがなはない
+    if word.len() <= 1 {
+        return word;
+    }
+    // (ex) 置き換える → 置換 ... 送りがなは漢字を挟んでも削る
+    // (ex) お兄さん → お兄 ... 漢字の後ろのひらがなのみ削る
+    // (ex) うたう → うたう ... 全部ひらがなであれば削らない
+    // (ex) INTする → INT ... アルファベットも漢字と見なす
+    let mut result: Vec<char> = vec![];
+    let mut is_hajime_hiragana = true;
+    for c in word.iter() {
+        // 漢字?
+        if !charutils::is_hiragana(*c) {
+            is_hajime_hiragana = false;
+            result.push(*c);
+            continue;
+        }
+        // 冒頭のひらがなは追加し続ける
+        if is_hajime_hiragana {
+            result.push(*c);
+            continue;
+        }
+    }
+    result
+}
+
+fn delete_okurigana_str(word: &str) -> String {
+    let word_v:Vec<char> = word.chars().collect();
+    let res_v = delete_okurigana(word_v);
+    res_v.iter().collect()
+}
+
+fn read_string(cur: &mut StrCur, line: &mut u32, end_flag: char, ex_str: bool) -> Token {
+    cur.next(); // begin_flag
+    let mut result: Vec<char> = vec![];
+    let line_begin = *line;
+    while cur.can_read() {
+        let c = cur.next();
+        if c == end_flag {
+            break;
+        }
+        if c == '\n' {
+            *line += 1;
+        }
+        result.push(c);
+    }
+    // read josi
+    let josi_opt = josi_list::read_josi(cur);
+    let label = result.iter().collect();
+    if ex_str {
+        return Token::new(TokenKind::StringEx, label, josi_opt, line_begin);
+    } else {
+        return Token::new(TokenKind::String, label, josi_opt, line_begin);
+    }
+}
+
 
 
 #[cfg(test)]
@@ -266,5 +329,33 @@ mod test_tokenizer {
         assert_eq!(tokens_string(&t), "[Word:A/から][Word:B/まで]");
         let t = tokenize("犬をネコへ");
         assert_eq!(tokens_string(&t), "[Word:犬/を][Word:ネコ/へ]");
+    }
+    #[test]
+    fn test_tokenize_str() {
+        let t = tokenize("35から「abc」まで置換");
+        assert_eq!(tokens_string(&t), "[Int:35/から][StringEx:abc/まで][Word:置換]");
+        let t = tokenize("「１２３123」");
+        assert_eq!(tokens_string(&t), "[StringEx:１２３123]");
+        let t = tokenize("'hoge'");
+        assert_eq!(tokens_string(&t), "[String:hoge]");
+        let t = tokenize("『boo』");
+        assert_eq!(tokens_string(&t), "[String:boo]");
+    }
+
+    #[test]
+    fn test_delete_okurigana() {
+        assert_eq!(delete_okurigana_str("切取り"), String::from("切取"));
+        assert_eq!(delete_okurigana_str("置き換える"), String::from("置換"));
+        assert_eq!(delete_okurigana_str("なでしこ"), String::from("なでしこ"));
+        assert_eq!(delete_okurigana_str("お兄ちゃん"), String::from("お兄"));
+        assert_eq!(delete_okurigana_str("F価格"), String::from("F価格"));
+        assert_eq!(delete_okurigana_str("VS食べる"), String::from("VS食"));
+        assert_eq!(delete_okurigana_str("INTする"), String::from("INT"));
+    }
+
+    #[test]
+    fn test_reserved_word() {
+        let t = tokenize("35回");
+        assert_eq!(tokens_string(&t), "[Int:35][Repeat]");
     }
 }
