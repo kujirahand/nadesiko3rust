@@ -1,20 +1,17 @@
 use crate::tokenizer::{self, Token, TokenKind};
 use crate::tokencur::TokenCur;
 
-#[derive(Debug,Clone)]
-pub struct ParseError {
-    pub message: String,
-    pub line: u32,
-    pub fileno: u32,
-}
-impl ParseError {
-    pub fn new(message: String, line: u32, fileno: u32) -> ParseError {
-        Self {
-            message,
-            line,
-            fileno
-        }
-    }
+#[derive(Debug,PartialEq,Clone,Copy)]
+pub enum NodeKind {
+    Nop,
+    Comment,
+    List,
+    Int,
+    Number,
+    String,
+    StringEx,
+    Let,
+    DebugPrint,
 }
 
 #[derive(Debug,Clone)]
@@ -33,10 +30,13 @@ impl Node {
             fileno
         }
     }
+    pub fn new_nop() -> Self {
+        Node::new(NodeKind::Nop, NodeValue::Empty, 0, 0)
+    }
 }
 #[derive(Debug,Clone)]
 pub enum NodeValue {
-    None,
+    Empty,
     S(String),
     I(isize),
     F(f64),
@@ -46,7 +46,7 @@ pub enum NodeValue {
 impl NodeValue {
     pub fn to_string(&self) -> String {
         match self {
-            NodeValue::None => String::from("None"),
+            NodeValue::Empty => String::from("Empty"),
             NodeValue::S(v) => format!("{}", v),
             NodeValue::I(v) => format!("{}", v),
             NodeValue::F(v) => format!("{}", v),
@@ -55,17 +55,23 @@ impl NodeValue {
     }
 }
 
-
-#[derive(Debug,PartialEq,Clone,Copy)]
-pub enum NodeKind {
-    Empty,
-    Comment,
-    List,
-    Int,
-    Number,
-    String,
-    StringEx,
-    Let,
+#[derive(Debug,Clone)]
+pub struct ParseError {
+    pub message: String,
+    pub line: u32,
+    pub fileno: u32,
+}
+impl ParseError {
+    pub fn new(message: String, line: u32, fileno: u32) -> ParseError {
+        Self {
+            message,
+            line,
+            fileno
+        }
+    }
+    pub fn to_string(&self) -> String {
+        format!("({}){}", self.line, self.message)
+    } 
 }
 
 #[derive(Debug)]
@@ -98,6 +104,7 @@ impl Parser {
     }
     pub fn throw_error(&mut self, msg: String, line: u32) {
         let err = ParseError::new(msg, line, self.fileno);
+        println!("[ERROR] {}", &err.to_string());
         self.errors.push(err);
         self.error_count += 1;
     }
@@ -149,12 +156,34 @@ impl Parser {
         // コメント
         if self.check_comment() { return true; }
         if self.check_let() { return true; }
+
+        // トークンの連続＋命令の場合
+        while self.cur.can_read() {
+            if self.cur.eq_kind(TokenKind::Eol) { break; }
+            if self.check_debug_print() { return true; }
+            if !self.check_value() { break; }
+        }
+        // スタックの余剰があればエラー
+        //todo
         true
     }
     fn check_comment(&mut self) -> bool {
         if !self.cur.eq_kind(TokenKind::Comment) { return false; }
         let t = self.cur.next();
         let node = Node::new(NodeKind::Comment, NodeValue::S(t.label), t.line, self.fileno);
+        self.nodes.push(node);
+        true
+    }
+    fn check_debug_print(&mut self) -> bool {
+        if !self.cur.eq_kind(TokenKind::DebugPrint) { return false; }
+        println!("{:?}", self.nodes);
+        let print_tok = self.cur.next();
+        if !self.stack.len() == 0 {
+            self.throw_error_token("『デバッグ表示』で引数がありません。", print_tok);
+            return false;
+        }
+        let value:Node = self.stack.pop().unwrap_or(Node::new_nop());
+        let node = Node::new(NodeKind::DebugPrint, NodeValue::Nodes(vec![value]), print_tok.line, self.fileno);
         self.nodes.push(node);
         true
     }
@@ -227,6 +256,31 @@ mod test_parser {
         assert_eq!(node.kind, NodeKind::Comment);
         assert_eq!(node.value.to_string(), String::from("cmt"));
     }
+
+    #[test]
+    fn test_parser_print() {
+        let t = tokenizer::tokenize("123をデバッグ表示");
+        let mut p = Parser::new(t, "hoge.nako3");
+        assert_eq!(p.parse(), true);
+        if p.nodes.len() > 0 {
+            let node = &p.nodes[0];
+            assert_eq!(node.kind, NodeKind::DebugPrint);
+            let arg0:String = match &node.value {
+                NodeValue::Nodes(nodes) => {
+                    if nodes.len() > 0 {
+                        nodes[0].value.to_string()
+                    } else {
+                        "".to_string()
+                    }
+                },
+                _ => String::from(""),
+            };
+            assert_eq!(arg0, String::from("123"));
+        } else {
+            assert_eq!("デバッグ表示", "");
+        }
+    }
+
     #[test]
     fn test_parser_let() {
         let t = tokenizer::tokenize("aaa = 30");

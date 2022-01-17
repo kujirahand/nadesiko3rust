@@ -18,7 +18,7 @@ impl TokenCur {
     }
 
     pub fn can_read(&self) -> bool {
-        return self.index < self.tokens.len()
+        return self.index < self.length
     }
 
     pub fn seek(&mut self, value: i32) {
@@ -33,6 +33,7 @@ impl TokenCur {
     }
 
     pub fn peek_kind(&self) -> TokenKind {
+        if !self.can_read() { return TokenKind::None; }
         let t = &self.tokens[self.index];
         t.kind
     }

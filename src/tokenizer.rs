@@ -60,7 +60,9 @@ pub enum TokenKind {
     Div,
     Mod,
     Pow,
+    DebugPrint,
 }
+
 impl std::fmt::Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         // 助詞の有無に生じて出力方式を変更する
@@ -71,31 +73,33 @@ impl std::fmt::Display for Token {
             }
         };
         let t = &self;
-        match self.kind {
-            TokenKind::None => write!(f, "None"),
-            TokenKind::Comment => write!(f, "Comment:{}", get_value(t)),
-            TokenKind::Eol => write!(f, "Eol"),
-            TokenKind::Int => write!(f, "Int:{}", get_value(t)),
-            TokenKind::Number => write!(f, "Number:{}", get_value(t)),
-            TokenKind::String => write!(f, "String:{}", get_value(t)),
-            TokenKind::StringEx => write!(f, "StringEx:{}", get_value(t)),
-            TokenKind::Word => write!(f, "Word:{}", get_value(t)),
-            TokenKind::Flag => write!(f, "Flag:{}", get_value(t)),
-            TokenKind::ParenL => write!(f, "ParenL:{}", get_value(t)),
-            TokenKind::ParenR => write!(f, "ParenR:{}", get_value(t)),
-            TokenKind::Eq => write!(f, "Eq"),
-            TokenKind::Plus => write!(f, "+"),
-            TokenKind::Minus => write!(f, "-"),
-            TokenKind::Mul => write!(f, "*"),
-            TokenKind::Div => write!(f, "/"),
-            TokenKind::Mod => write!(f, "%"),
-            TokenKind::Pow => write!(f, "^"),
-            TokenKind::If => write!(f, "If"),
-            TokenKind::Repeat => write!(f, "Repeat"),
-            TokenKind::BlockBegin => write!(f, "ここから"),
-            TokenKind::BlockEnd => write!(f, "ここまで"),
-            _ => write!(f, "{:?}", self),
-        }
+        let s: String = match self.kind {
+            TokenKind::None => format!("None"),
+            TokenKind::Comment => format!("Comment:{}", get_value(t)),
+            TokenKind::Eol => format!("Eol"),
+            TokenKind::Int => format!("Int:{}", get_value(t)),
+            TokenKind::Number => format!("Number:{}", get_value(t)),
+            TokenKind::String => format!("String:{}", get_value(t)),
+            TokenKind::StringEx => format!("StringEx:{}", get_value(t)),
+            TokenKind::Word => format!("Word:{}", get_value(t)),
+            TokenKind::Flag => format!("Flag:{}", get_value(t)),
+            TokenKind::ParenL => format!("ParenL:{}", get_value(t)),
+            TokenKind::ParenR => format!("ParenR:{}", get_value(t)),
+            TokenKind::Eq => format!("Eq"),
+            TokenKind::Plus => format!("+"),
+            TokenKind::Minus => format!("-"),
+            TokenKind::Mul => format!("*"),
+            TokenKind::Div => format!("/"),
+            TokenKind::Mod => format!("%"),
+            TokenKind::Pow => format!("^"),
+            TokenKind::If => format!("If"),
+            TokenKind::Repeat => format!("Repeat"),
+            TokenKind::BlockBegin => format!("ここから"),
+            TokenKind::BlockEnd => format!("ここまで"),
+            TokenKind::DebugPrint => format!("デバッグ表示"),
+            _ => format!("{:?}", self),
+        };
+        write!(f, "{}", s)
     }
 }
 

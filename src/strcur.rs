@@ -20,10 +20,8 @@ impl StrCur {
         }
     }
     pub fn peek(&self) -> char {
-        if self.can_read() {
-            return self.src[self.index];
-        }
-        '\0'
+        if !self.can_read() { return '\0'; }
+        return self.src[self.index];
     }
     pub fn peek_in_range(&self, min: char, max: char) -> bool {
         if !self.can_read() { return false; }
@@ -31,12 +29,10 @@ impl StrCur {
         return (min <= ch) && (ch <= max)
     }
     pub fn next(&mut self) -> char {
-        if self.can_read() {
-            let ch = self.src[self.index];
-            self.index += 1;
-            return ch;
-        }
-        '\0'
+        if !self.can_read() { return '\0'; }
+        let ch = self.src[self.index];
+        self.index += 1;
+        return ch;
     }
     pub fn seek(&mut self, inc_value: i32) {
         if inc_value > 0 {
@@ -245,5 +241,14 @@ mod test_prepare {
         assert_eq!(cur.get_range_str('a','z'), "abc");
         assert_eq!(cur.get_range_str('0','9'), "456");
         assert_eq!(cur.get_range_str('a','z'), "ccc");
+    }
+    #[test]
+    fn next_test2() {
+        let mut cur = StrCur::from("123");
+        assert_eq!(cur.next(), '1');
+        assert_eq!(cur.next(), '2');
+        assert_eq!(cur.next(), '3');
+        assert_eq!(cur.next(), '\0');
+        assert_eq!(cur.next(), '\0');
     }
 }
