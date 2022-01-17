@@ -2,7 +2,7 @@ use crate::prepare;
 use crate::strcur::StrCur;
 use crate::charutils;
 use crate::josi_list;
-use crate::reserve_word;
+use crate::reserved_words;
 
 #[derive(Debug,Clone)]
 pub struct Token {
@@ -54,6 +54,12 @@ pub enum TokenKind {
     BlockEnd,
     If,
     Repeat,
+    Plus,
+    Minus,
+    Mul,
+    Div,
+    Mod,
+    Pow,
 }
 impl std::fmt::Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -78,6 +84,12 @@ impl std::fmt::Display for Token {
             TokenKind::ParenL => write!(f, "ParenL:{}", get_value(t)),
             TokenKind::ParenR => write!(f, "ParenR:{}", get_value(t)),
             TokenKind::Eq => write!(f, "Eq"),
+            TokenKind::Plus => write!(f, "+"),
+            TokenKind::Minus => write!(f, "-"),
+            TokenKind::Mul => write!(f, "*"),
+            TokenKind::Div => write!(f, "/"),
+            TokenKind::Mod => write!(f, "%"),
+            TokenKind::Pow => write!(f, "^"),
             TokenKind::If => write!(f, "If"),
             TokenKind::Repeat => write!(f, "Repeat"),
             TokenKind::BlockBegin => write!(f, "ここから"),
@@ -134,25 +146,34 @@ pub fn tokenize(src: &str) -> Vec<Token> {
         match ch {
             '\n' => { result.push(read_lf(&mut cur, &mut line)); continue; },
             '/' => { result.push(read_slash(&mut cur, &mut line)); continue; },
+            // 文字列記号
             '「' => { result.push(read_string(&mut cur, &mut line, '」', true)); continue; }
             '『' => { result.push(read_string(&mut cur, &mut line, '』', false)); continue; }
             '"' => { result.push(read_string(&mut cur, &mut line, '"', true)); continue; }
             '\'' => { result.push(read_string(&mut cur, &mut line, '\'', false)); continue; }
+            //各種カッコ
             '(' => { flag_push!(TokenKind::ParenL, result, cur, line); continue; },
             ')' => { flag_push_josi!(TokenKind::ParenR, result, cur, line); continue; },
             '[' => { flag_push!(TokenKind::BracketL, result, cur, line); continue; },
             ']' => { flag_push_josi!(TokenKind::BracketR, result, cur, line); continue; },
-            '=' => { flag_push_josi!(TokenKind::Eq, result, cur, line); continue; },
-            '\\' => { flag_push!(TokenKind::Flag, result, cur, line); continue; },
-            '^' => { flag_push!(TokenKind::Flag, result, cur, line); continue; },
-            '`' => { flag_push!(TokenKind::Flag, result, cur, line); continue; },
             '{' => { flag_push!(TokenKind::CurBracketL, result, cur, line); continue; },
             '}' => { flag_push_josi!(TokenKind::CurBracketR, result, cur, line); continue; },
+            // 演算子
+            '=' => { flag_push_josi!(TokenKind::Eq, result, cur, line); continue; },
+            '+' => { flag_push_josi!(TokenKind::Plus, result, cur, line); continue; },
+            '-' => { flag_push_josi!(TokenKind::Minus, result, cur, line); continue; },
+            '*' => { flag_push_josi!(TokenKind::Mul, result, cur, line); continue; },
+            '%' => { flag_push_josi!(TokenKind::Mod, result, cur, line); continue; },
+            '^' => { flag_push!(TokenKind::Pow, result, cur, line); continue; },
+            '\\' => { flag_push!(TokenKind::Flag, result, cur, line); continue; },
+            '`' => { flag_push!(TokenKind::Flag, result, cur, line); continue; },
             '|' => { flag_push!(TokenKind::Flag, result, cur, line); continue; },
             '~' => { flag_push!(TokenKind::Flag, result, cur, line); continue; },
             '!'..='.' => { flag_push!(TokenKind::Flag, result, cur, line); continue; },
             ':'..='@' => { flag_push!(TokenKind::Flag, result, cur, line); continue; },
+            // 数値
             '0'..='9' => { result.push(read_number(&mut cur, &mut line)); continue; },
+            // word
             'a'..='z' | 'A'..='Z' | '_' => { result.push(read_word(&mut cur, &mut line)); continue; }
             n if n > (0xE0 as char) => { result.push(read_word(&mut cur, &mut line)); continue; }
             _ => {}
@@ -195,7 +216,7 @@ fn read_slash(cur: &mut StrCur, line: &mut u32) -> Token {
     }
     // flag
     let flag = cur.next();
-    return Token::new_char(TokenKind::Flag, flag, *line);
+    return Token::new_char(TokenKind::Div, flag, *line);
 }
 
 fn read_number(cur: &mut StrCur, line: &mut u32) -> Token {
@@ -229,7 +250,7 @@ fn read_word(cur: &mut StrCur, line: &mut u32) -> Token {
         }
         if cur.eq_str("ここから") {
             cur.seek(4);
-            return Token::new_str(TokenKind::BlockEnd, "ここから", *line);
+            return Token::new_str(TokenKind::BlockBegin, "ここから", *line);
         }
     }
     
@@ -259,7 +280,7 @@ fn read_word(cur: &mut StrCur, line: &mut u32) -> Token {
     // 送りがなをカット
     word = delete_okurigana(word);
     let word_s: String = word.iter().collect();
-    let kind = reserve_word::check_kind(&word_s);
+    let kind = reserved_words::check_kind(&word_s);
     Token::new(kind, word_s, josi_opt, *line)
 }
 
@@ -340,7 +361,7 @@ mod test_tokenizer {
         let t = tokenize("(3.0)");
         assert_eq!(tokens_string(&t), "[ParenL:(][Number:3.0][ParenR:)]");
         let t = tokenize("A=3*5");
-        assert_eq!(tokens_string(&t), "[Word:A][Eq][Int:3][Flag:*][Int:5]");
+        assert_eq!(tokens_string(&t), "[Word:A][Eq][Int:3][*][Int:5]");
     }
     #[test]
     fn test_tokenize_josi() {

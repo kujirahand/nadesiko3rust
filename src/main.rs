@@ -6,7 +6,6 @@ mod josi_list;
 mod parser;
 mod reserved_words;
 mod tokencur;
-mod reserve_word;
 
 fn main() {
     let tokens = tokenizer::tokenize("//test");

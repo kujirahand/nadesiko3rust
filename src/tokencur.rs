@@ -9,16 +9,16 @@ pub struct TokenCur {
 
 impl TokenCur {
     pub fn new(tokens: Vec<Token>) -> Self {
-        let len = tokens.len();
+        let length = tokens.len();
         Self {
             tokens,
             index: 0,
-            length: len,
+            length,
         }
     }
 
     pub fn can_read(&self) -> bool {
-        return self.index < self.length
+        return self.index < self.tokens.len()
     }
 
     pub fn seek(&mut self, value: i32) {
@@ -67,7 +67,6 @@ impl TokenCur {
         true
     }
 }
-
 
 #[cfg(test)]
 mod test_tokencur {
