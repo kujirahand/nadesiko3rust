@@ -36,8 +36,9 @@ impl Node {
     pub fn to_string(&self) -> String {
         match self.kind {
             NodeKind::Int => format!("Int:{}", self.value.to_string()),
-            NodeKind::Comment => format!("// {}", self.value.to_string()),
+            NodeKind::Comment => format!("Comment:{}", self.value.to_string()),
             NodeKind::Let => format!("Let:{}", self.value.to_string()),
+            NodeKind::DebugPrint => format!("DebugPrint:{}", self.value.to_string()),
             _ => format!("{:?}", self.kind),
         }
     }
@@ -61,7 +62,8 @@ impl NodeValue {
             NodeValue::I(v) => format!("{}", v),
             NodeValue::F(v) => format!("{}", v),
             NodeValue::LetVar(v) => format!("{}={:?}", v.var_name, v.value_node),
-            NodeValue::Nodes(nodes) => format!("Nodes:{}", nodes_to_string(nodes, ",")),
+            NodeValue::Nodes(nodes) => format!("Nodes:[{}]", nodes_to_string(nodes, ",")),
+            NodeValue::GetVar(var) => format!("GetVar:{:?}", var),
             _ => String::from(""),
         }
     }

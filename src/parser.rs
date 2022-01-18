@@ -93,7 +93,7 @@ impl Parser {
             self.sentence();
             if self.cur.index == tmp_index {
                 let t = self.cur.peek();
-                println!("[parser::system.error](sentence_list):{}(line={})", t, t.line);
+                println!("[error](sentence_list):{}(line={})", t, t.line);
                 self.cur.next_kind();
             }
         }
@@ -209,10 +209,14 @@ impl Parser {
             return true;
         }
         if self.cur.eq_kind(TokenKind::Word) {
+            // 変数の参照
             let t = self.cur.next();
             let var_name = String::from(t.label);
             let var_info = match self.context.find_var_info(&var_name) {
-                Some(i) => i,
+                Some(mut i) => {
+                    i.name = Some(var_name);
+                    i
+                },
                 None => {
                     let level = self.get_scope_level();
                     let no = self.context.scopes[level].set_var(&var_name, NodeValue::Empty);

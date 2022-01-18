@@ -1,13 +1,21 @@
 // 走者 - Vec<Node>を順に実行
 use crate::node::*;
 
+pub fn indent_str(num: usize) -> String {
+    let mut s = String::new();
+    for _ in 0..num {
+        s.push_str("    ");
+    }
+    s
+}
+
 pub fn run_nodes(ctx: &mut NodeContext, nodes: &Vec<Node>) -> NodeValue {
     ctx.callstack_level += 1;
     let nodes_len = nodes.len();
     let mut result = NodeValue::Empty;
     while ctx.index < nodes_len {
         let cur:&Node = &nodes[ctx.index];
-        println!("[run]({:02}:{:02}) {:?}", ctx.index, ctx.callstack_level, cur.kind);
+        println!("[run]({:02}) {}{}", ctx.index, indent_str(ctx.callstack_level-1), cur.to_string());
         match cur.kind {
             NodeKind::Comment => {},
             NodeKind::Let => result = run_let(ctx, cur),
@@ -30,7 +38,7 @@ fn run_debug_print(ctx: &mut NodeContext, node: &Node) -> NodeValue {
         _ => return NodeValue::Empty,
     };
     let v = run_nodes(ctx, arg_node);
-    println!("{}", v.to_string());
+    println!("[DEBUG] {}", v.to_string());
     v
 }
 
