@@ -1,6 +1,6 @@
 use crate::prepare;
 use crate::strcur::StrCur;
-use crate::charutils;
+use crate::kanautils;
 use crate::josi_list;
 use crate::reserved_words;
 
@@ -149,6 +149,7 @@ pub fn tokenize(src: &str) -> Vec<Token> {
         let ch = cur.peek();
         match ch {
             '\n' => { result.push(read_lf(&mut cur, &mut line)); continue; },
+            ';' => { flag_push!(TokenKind::Eol, result, cur, line); continue; },
             '/' => { result.push(read_slash(&mut cur, &mut line)); continue; },
             // 文字列記号
             '「' => { result.push(read_string(&mut cur, &mut line, '」', true)); continue; }
@@ -259,14 +260,14 @@ fn read_word(cur: &mut StrCur, line: &mut u32) -> Token {
     }
     
     // ひらがなスタートなら1文字目は助詞にならない
-    if charutils::is_hiragana(cur.peek()) {
+    if kanautils::is_hiragana(cur.peek()) {
         word.push(cur.next());
     }
     
     while cur.can_read() {
         let c = cur.peek();
         // 助詞か？
-        if charutils::is_hiragana(c) {
+        if kanautils::is_hiragana(c) {
             josi_opt = josi_list::read_josi(cur);
             match josi_opt {
                 Some(_) => break, // 助詞なら繰り返しを抜ける
@@ -274,7 +275,7 @@ fn read_word(cur: &mut StrCur, line: &mut u32) -> Token {
             }
         }
         // wordになり得る文字か？
-        if charutils::is_word_chars(c) {
+        if kanautils::is_word_chars(c) {
             word.push(cur.next());
             continue;
         }
@@ -301,7 +302,7 @@ fn delete_okurigana(word: Vec<char>) -> Vec<char> {
     let mut is_hajime_hiragana = true;
     for c in word.iter() {
         // 漢字?
-        if !charutils::is_hiragana(*c) {
+        if !kanautils::is_hiragana(*c) {
             is_hajime_hiragana = false;
             result.push(*c);
             continue;

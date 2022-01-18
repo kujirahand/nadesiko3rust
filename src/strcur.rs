@@ -1,7 +1,7 @@
 /**
  * 文字列をカーソルで操作する
  */
-use crate::charutils;
+use crate::kanautils;
 
 pub struct StrCur {
     pub src: Vec<char>,
@@ -55,7 +55,7 @@ impl StrCur {
     }
     pub fn peek_half(&self) -> char {
         let ch = self.peek();
-        charutils::to_half_ascii(ch)
+        kanautils::to_half_ascii(ch)
     }
     pub fn can_read(&self) -> bool {
         self.index < self.length

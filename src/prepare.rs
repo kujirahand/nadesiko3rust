@@ -1,4 +1,4 @@
-use crate::charutils;
+use crate::kanautils;
 use crate::strcur::StrCur;
 
 pub fn convert(src: &str) -> String {
@@ -10,7 +10,7 @@ pub fn convert(src: &str) -> String {
     let mut is_range_comment = false;
     while cur.can_read() {
         let ch = cur.next();
-        let ch_half = charutils::to_half_ascii(ch);
+        let ch_half = kanautils::to_half_ascii(ch);
         // string
         if is_str {
             if ch == end_of_str {

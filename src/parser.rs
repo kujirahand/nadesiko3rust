@@ -1,6 +1,6 @@
-use crate::tokenizer::{self, Token, TokenKind};
-use crate::tokencur::TokenCur;
+use crate::tokenizer::*;
 use crate::node::*;
+use crate::tokencur::TokenCur;
 
 #[derive(Debug,Clone)]
 pub struct ParseError {
@@ -23,10 +23,11 @@ impl ParseError {
 
 #[derive(Debug)]
 pub struct Parser {
+    pub nodes: Vec<Node>,
+    pub context: NodeContext,
+    cur: TokenCur,
     fileno: u32,
     files: Vec<String>,
-    pub nodes: Vec<Node>,
-    cur: TokenCur,
     stack: Vec<Node>,
     errors: Vec<ParseError>,
     error_count: usize,
@@ -39,6 +40,7 @@ impl Parser {
             cur: TokenCur::new(tokens),
             nodes: vec![],
             stack: vec![],
+            context: NodeContext::new(),
             errors: vec![],
             error_count: 0,
         };
@@ -76,6 +78,10 @@ impl Parser {
         }
         None
     }
+
+    //-------------------------------------------------------------
+    // parse
+    //-------------------------------------------------------------
     pub fn parse(&mut self) -> bool {
         self.sentence_list()
     }
@@ -123,7 +129,6 @@ impl Parser {
     }
     fn check_debug_print(&mut self) -> bool {
         if !self.cur.eq_kind(TokenKind::DebugPrint) { return false; }
-        println!("{:?}", self.nodes);
         let print_tok = self.cur.next();
         if !self.stack.len() == 0 {
             self.throw_error_token("『デバッグ表示』で引数がありません。", print_tok);
@@ -149,9 +154,30 @@ impl Parser {
             },
             Some(node) => node,
         };
+        // 既に存在する変数への代入?
+        let var_name = &word.label;
+        let var_info = match self.context.find_var_info(var_name) {
+            Some(info) => info,
+            None => {
+                let new_value = NodeValue::Empty;
+                let mut scope = self.context.scopes.pop().unwrap_or(NodeScope::new());
+                let no = scope.set_var(var_name, new_value);
+                self.context.scopes.push(scope);
+                NodeVarInfo{
+                    name: Some(String::from(var_name)),
+                    level: self.context.scopes.len() - 1,
+                    no,
+                }
+            }
+        };
+        let node_value_let = NodeValueLet {
+            var_name: word.label,
+            var_info: var_info,
+            value_node: vec![value],
+        };
         let let_node = Node::new(
             NodeKind::Let, 
-            NodeValue::LetVar(NodeValueLet::new(word.label, vec![value])),
+            NodeValue::LetVar(node_value_let),
             word.line,
             self.fileno);
         self.nodes.push(let_node);
@@ -182,7 +208,30 @@ impl Parser {
             // todo flag
             return true;
         }
+        if self.cur.eq_kind(TokenKind::Word) {
+            let t = self.cur.next();
+            let var_name = String::from(t.label);
+            let var_info = match self.context.find_var_info(&var_name) {
+                Some(i) => i,
+                None => {
+                    let level = self.get_scope_level();
+                    let no = self.context.scopes[level].set_var(&var_name, NodeValue::Empty);
+                    NodeVarInfo {
+                        name: Some(var_name), 
+                        level,
+                        no
+                    }
+                },
+            };
+            let node = Node::new(NodeKind::GetVar, NodeValue::GetVar(var_info), t.line, self.fileno);
+            self.stack.push(node);
+            self.check_calc_flag();
+            return true;
+        }
         false
+    }
+    fn get_scope_level(&self) -> usize {
+        self.context.scopes.len() - 1
     }
     fn check_calc_flag(&mut self) -> bool {
         // todo: check calc flag
@@ -196,7 +245,7 @@ mod test_parser {
     use super::*;
     #[test]
     fn test_parser_comment() {
-        let t = tokenizer::tokenize("/*cmt*/");
+        let t = tokenize("/*cmt*/");
         let mut p = Parser::new(t, "hoge.nako3");
         assert_eq!(p.parse(), true);
         let node = &p.nodes[0];
@@ -206,7 +255,7 @@ mod test_parser {
 
     #[test]
     fn test_parser_print() {
-        let t = tokenizer::tokenize("123をデバッグ表示");
+        let t = tokenize("123をデバッグ表示");
         let mut p = Parser::new(t, "hoge.nako3");
         assert_eq!(p.parse(), true);
         if p.nodes.len() > 0 {
@@ -230,14 +279,14 @@ mod test_parser {
 
     #[test]
     fn test_parser_let() {
-        let t = tokenizer::tokenize("aaa = 30");
+        let t = tokenize("aaa = 30");
         let mut p = Parser::new(t, "hoge.nako3");
         assert_eq!(p.parse(), true);
         let node = &p.nodes[0];
         assert_eq!(node.kind, NodeKind::Let);
         let let_value = match &node.value {
             NodeValue::LetVar(v) => {
-                assert_eq!(*v.varname, "aaa".to_string());
+                assert_eq!(*v.var_name, "aaa".to_string());
                 let node = &v.value_node[0];
                 match node.value {
                     NodeValue::I(v) => v,
