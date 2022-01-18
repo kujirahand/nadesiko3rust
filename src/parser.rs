@@ -1,59 +1,6 @@
 use crate::tokenizer::{self, Token, TokenKind};
 use crate::tokencur::TokenCur;
-
-#[derive(Debug,PartialEq,Clone,Copy)]
-pub enum NodeKind {
-    Nop,
-    Comment,
-    List,
-    Int,
-    Number,
-    String,
-    StringEx,
-    Let,
-    DebugPrint,
-}
-
-#[derive(Debug,Clone)]
-pub struct Node {
-    pub kind: NodeKind,
-    pub value: NodeValue,
-    pub line: u32,
-    pub fileno: u32,
-}
-impl Node {
-    pub fn new(kind: NodeKind, value: NodeValue, line: u32, fileno: u32) -> Self {
-        Self {
-            kind,
-            value,
-            line, 
-            fileno
-        }
-    }
-    pub fn new_nop() -> Self {
-        Node::new(NodeKind::Nop, NodeValue::Empty, 0, 0)
-    }
-}
-#[derive(Debug,Clone)]
-pub enum NodeValue {
-    Empty,
-    S(String),
-    I(isize),
-    F(f64),
-    Nodes(Vec<Node>),
-    LetVar(String, Vec<Node>),
-}
-impl NodeValue {
-    pub fn to_string(&self) -> String {
-        match self {
-            NodeValue::Empty => String::from("Empty"),
-            NodeValue::S(v) => format!("{}", v),
-            NodeValue::I(v) => format!("{}", v),
-            NodeValue::F(v) => format!("{}", v),
-            _ => String::from(""),
-        }
-    }
-}
+use crate::node::*;
 
 #[derive(Debug,Clone)]
 pub struct ParseError {
@@ -204,7 +151,7 @@ impl Parser {
         };
         let let_node = Node::new(
             NodeKind::Let, 
-            NodeValue::LetVar(word.label, vec![value]),
+            NodeValue::LetVar(NodeValueLet::new(word.label, vec![value])),
             word.line,
             self.fileno);
         self.nodes.push(let_node);
@@ -289,9 +236,9 @@ mod test_parser {
         let node = &p.nodes[0];
         assert_eq!(node.kind, NodeKind::Let);
         let let_value = match &node.value {
-            NodeValue::LetVar(var, nodes) => {
-                assert_eq!(*var, "aaa".to_string());
-                let node = &nodes[0];
+            NodeValue::LetVar(v) => {
+                assert_eq!(*v.varname, "aaa".to_string());
+                let node = &v.value_node[0];
                 match node.value {
                     NodeValue::I(v) => v,
                     _ => 0,
