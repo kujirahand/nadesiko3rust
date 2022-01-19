@@ -9,6 +9,7 @@ pub struct StrCur {
     index: usize,
 }
 
+#[allow(dead_code)]
 impl StrCur {
     pub fn from(src: &str) -> Self {
         let vc:Vec<char> = src.chars().collect();

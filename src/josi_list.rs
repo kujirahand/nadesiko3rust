@@ -20,7 +20,13 @@ pub fn read_josi(cur: &mut StrCur) -> Option<String> {
     ];
     for josi in josi_list {
       if cur.eq_str(josi) {
+        // 助詞を見つけたらカーソルを進める
         cur.seek(josi.chars().count() as i32);
+        // ただし、意味なしの助詞であればカーソルを進めつつもNoneを返す
+        if is_josi_iminasi(josi) {
+          return None;
+        }
+        // 助詞を返す
         return Some(String::from(josi));
       }
     }
@@ -64,10 +70,13 @@ mod test_josi {
         assert_eq!(read_josi(&mut cur), Some(String::from("でなければ")));
     }
 
+    #[test]
     fn is_josi_mosi_test() {
         let s = String::from("でなければ");
         assert_eq!(is_josi_mosi(&s), true);
     }
+    
+    #[test]
     fn is_josi_iminasi_test() {
       let s = String::from("です");
       assert_eq!(is_josi_iminasi(&s), true);

@@ -1,9 +1,12 @@
 /**
- * charutils.rs
+ * kanautils.rs
  * 半角変換変換用
  */
 
+
 use std::char;
+
+#[allow(dead_code)]
 pub fn is_half(c: char) -> bool {
     (c as u32) < 0xF0u32
 }
@@ -14,10 +17,12 @@ macro_rules! in_range {
     };
 }
 
+#[allow(dead_code)]
 pub fn is_alpha(c: char) -> bool {
     in_range![c => 'a'..='z', 'A'..='Z']
 }
 
+#[allow(dead_code)]
 pub fn is_numeric(c: char) -> bool {
     ('0'..='9').contains(&c)
 }

@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
+#[allow(dead_code)]
 #[derive(Debug,PartialEq,Clone,Copy)]
 pub enum NodeKind {
     Nop,
     Comment,
-    List,
     Int,
     Number,
     String,
@@ -39,6 +39,7 @@ impl Node {
             NodeKind::Comment => format!("Comment:{}", self.value.to_string()),
             NodeKind::Let => format!("Let:{}", self.value.to_string()),
             NodeKind::DebugPrint => format!("DebugPrint:{}", self.value.to_string()),
+            NodeKind::GetVar => format!("GetVar:{}", self.value.to_string()),
             _ => format!("{:?}", self.kind),
         }
     }
@@ -64,7 +65,16 @@ impl NodeValue {
             NodeValue::LetVar(v) => format!("{}={:?}", v.var_name, v.value_node),
             NodeValue::Nodes(nodes) => format!("Nodes:[{}]", nodes_to_string(nodes, ",")),
             NodeValue::GetVar(var) => format!("GetVar:{:?}", var),
-            _ => String::from(""),
+            // _ => String::from(""),
+        }
+    }
+    pub fn to_int(&self, def_value: isize) -> isize {
+        match self {
+            NodeValue::Empty => def_value,
+            NodeValue::S(v) => v.parse().unwrap_or(def_value),
+            NodeValue::I(v) => *v,
+            NodeValue::F(v) => *v as isize,
+            _ => def_value,
         }
     }
 }
@@ -82,20 +92,41 @@ pub struct NodeContext {
     pub callstack_level: usize,
     pub labels: HashMap<String, Node>,
     pub scopes: Vec<NodeScope>,
+    pub files: Vec<String>,
 }
 
 impl NodeContext {
     pub fn new() -> Self {
-        let sys_global = NodeScope::new();
+        // generate system scope and user global scope
+        let sys_scope = NodeScope::new();
         let user_global = NodeScope::new();
-        let scopes = vec![sys_global, user_global];
+        let scopes = vec![sys_scope, user_global];
         NodeContext {
             index: 0,
             callstack_level: 0,
             labels: HashMap::new(),
             scopes,
+            files: vec![],
         }
     }
+    // for file management
+    pub fn set_filename(&mut self, filename: &str) -> u32 {
+        match self.find_files(filename) {
+            Some(fileno) => fileno,
+            None => {
+                let fileno = self.files.len() as u32;
+                self.files.push(filename.to_string());
+                fileno
+            },
+        }
+    }
+    pub fn find_files(&self, filename: &str) -> Option<u32> {
+        for (i, fname) in self.files.iter().enumerate() {
+            if fname == filename { return Some(i as u32); }
+        }
+        None
+    }
+    // for scope variables
     pub fn find_var_info(&self, name: &str) -> Option<NodeVarInfo> {
         // 末端から変数名を検索
         let mut level: isize = (self.scopes.len() - 1) as isize;
@@ -188,6 +219,7 @@ impl NodeScope {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug,Clone,Copy)]
 pub enum NodeVarKind {
     Empty,
@@ -200,8 +232,11 @@ pub enum NodeVarKind {
 
 pub fn nodes_to_string(nodes: &Vec<Node>, delimiter: &str) -> String {
     let mut r = String::new();
-    for node in nodes.iter() {
-        r.push_str(&format!("{}{}", node.to_string(), delimiter));
+    for (i, node) in nodes.iter().enumerate() {
+        r.push_str(&node.to_string());
+        if i != (nodes.len() - 1) {
+            r.push_str(delimiter);
+        }
     }
     r
 }

@@ -7,6 +7,7 @@ pub struct TokenCur {
     length: usize,
 }
 
+#[allow(dead_code)]
 impl TokenCur {
     pub fn new(tokens: Vec<Token>) -> Self {
         let length = tokens.len();

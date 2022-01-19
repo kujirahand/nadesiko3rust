@@ -33,22 +33,20 @@ pub struct Parser {
     error_count: usize,
 }
 impl Parser {
-    pub fn new(tokens: Vec<Token>, filename: &str) -> Self {
-        let mut parser = Self {
+    pub fn new() -> Self {
+        Self {
             fileno: 0,
             files: vec![],
-            cur: TokenCur::new(tokens),
+            cur: TokenCur::new(vec![]), // dummy
             nodes: vec![],
             stack: vec![],
             context: NodeContext::new(),
             errors: vec![],
             error_count: 0,
-        };
-        parser.set_filename(filename);
-        parser
+        }
     }
     // for error
-    fn has_error(&self) -> bool {
+    pub fn has_error(&self) -> bool {
         self.error_count > 0
     }
     pub fn throw_error(&mut self, msg: String, line: u32) {
@@ -61,28 +59,15 @@ impl Parser {
         let message = format!("『{}』の近くで、{}。", t.label, msg);
         self.throw_error(message, t.line);
     }
-    fn set_filename(&mut self, filename: &str) {
-        match self.find_files(filename) {
-            Some(fileno) => {
-                self.fileno = fileno;
-            },
-            None => {
-                self.fileno = self.files.len() as u32;
-                self.files.push(filename.to_string());
-            },
-        };
+    pub fn clone_context(&self) -> NodeContext {
+        self.context.clone()
     }
-    fn find_files(&self, filename: &str) -> Option<u32> {
-        for (i, fname) in self.files.iter().enumerate() {
-            if fname == filename { return Some(i as u32); }
-        }
-        None
-    }
-
     //-------------------------------------------------------------
     // parse
     //-------------------------------------------------------------
-    pub fn parse(&mut self) -> bool {
+    pub fn parse(&mut self, tokens: Vec<Token>, filename: &str) -> bool {
+        self.cur = TokenCur::new(tokens);
+        self.fileno = self.context.set_filename(filename);
         self.sentence_list()
     }
     fn sentence_list(&mut self) -> bool {
@@ -241,7 +226,6 @@ impl Parser {
         // todo: check calc flag
         false
     }
-
 }
 
 #[cfg(test)]
@@ -250,8 +234,8 @@ mod test_parser {
     #[test]
     fn test_parser_comment() {
         let t = tokenize("/*cmt*/");
-        let mut p = Parser::new(t, "hoge.nako3");
-        assert_eq!(p.parse(), true);
+        let mut p = Parser::new();
+        assert_eq!(p.parse(t, "hoge.nako3"), true);
         let node = &p.nodes[0];
         assert_eq!(node.kind, NodeKind::Comment);
         assert_eq!(node.value.to_string(), String::from("cmt"));
@@ -260,8 +244,8 @@ mod test_parser {
     #[test]
     fn test_parser_print() {
         let t = tokenize("123をデバッグ表示");
-        let mut p = Parser::new(t, "hoge.nako3");
-        assert_eq!(p.parse(), true);
+        let mut p = Parser::new();
+        assert_eq!(p.parse(t, "hoge.nako3"), true);
         if p.nodes.len() > 0 {
             let node = &p.nodes[0];
             assert_eq!(node.kind, NodeKind::DebugPrint);
@@ -284,8 +268,8 @@ mod test_parser {
     #[test]
     fn test_parser_let() {
         let t = tokenize("aaa = 30");
-        let mut p = Parser::new(t, "hoge.nako3");
-        assert_eq!(p.parse(), true);
+        let mut p = Parser::new();
+        assert_eq!(p.parse(t, "hoge.nako3"), true);
         let node = &p.nodes[0];
         assert_eq!(node.kind, NodeKind::Let);
         let let_value = match &node.value {

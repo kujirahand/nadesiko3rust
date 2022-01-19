@@ -13,8 +13,9 @@ pub fn run_nodes(ctx: &mut NodeContext, nodes: &Vec<Node>) -> NodeValue {
     ctx.callstack_level += 1;
     let nodes_len = nodes.len();
     let mut result = NodeValue::Empty;
-    while ctx.index < nodes_len {
-        let cur:&Node = &nodes[ctx.index];
+    let mut index = 0;
+    while index < nodes_len {
+        let cur:&Node = &nodes[index];
         println!("[run]({:02}) {}{}", ctx.index, indent_str(ctx.callstack_level-1), cur.to_string());
         match cur.kind {
             NodeKind::Comment => {},
@@ -26,18 +27,18 @@ pub fn run_nodes(ctx: &mut NodeContext, nodes: &Vec<Node>) -> NodeValue {
                 println!("Not implement:{:?}", cur);
             }
         }
-        ctx.index += 1;
+        index += 1;
     }
     ctx.callstack_level -= 1;
     result
 }
 
 fn run_debug_print(ctx: &mut NodeContext, node: &Node) -> NodeValue {
-    let arg_node: &Vec<Node> = match &node.value {
+    let arg_nodes: &Vec<Node> = match &node.value {
         NodeValue::Nodes(ref nodes) => nodes,
         _ => return NodeValue::Empty,
     };
-    let v = run_nodes(ctx, arg_node);
+    let v = run_nodes(ctx, arg_nodes);
     println!("[DEBUG] {}", v.to_string());
     v
 }
@@ -62,5 +63,24 @@ fn run_get_var(ctx: &mut NodeContext, node: &Node) -> NodeValue {
     match ctx.get_var_value(var_info) {
         Some(v) => v,
         None => NodeValue::Empty
+    }
+}
+
+#[cfg(test)]
+mod test_runner {
+    use super::*;
+    use crate::tokenizer;
+    use crate::parser;
+    use crate::node;
+    #[test]
+    fn test_debug_print() {
+        let t = tokenizer::tokenize("123とデバッグ表示;");
+        let mut p = parser::Parser::new();
+        p.parse(t, "a.nako3");
+        println!("{}", node::nodes_to_string(&p.nodes, "||"));
+        let mut ctx = p.clone_context();
+        assert_eq!(p.nodes.len() > 0, true);
+        let result:NodeValue = run_nodes(&mut ctx, &p.nodes);
+        assert_eq!(result.to_int(0), 123);
     }
 }
