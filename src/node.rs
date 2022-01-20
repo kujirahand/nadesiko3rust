@@ -13,6 +13,7 @@ pub enum NodeKind {
     Let,
     DebugPrint,
     Operator,
+    CallSysFunc,
 }
 
 #[derive(Debug,Clone)]
@@ -54,6 +55,7 @@ impl Node {
             NodeKind::DebugPrint => format!("DebugPrint:{}", self.value.to_string()),
             NodeKind::GetVar => format!("GetVar:{}", self.value.to_string()),
             NodeKind::Operator => format!("Operator:{}", self.value.to_string()),
+            NodeKind::CallSysFunc => format!("CallSysFunc:{}", self.value.to_string()),
             _ => format!("{:?}", self.kind),
         }
     }
@@ -69,6 +71,7 @@ pub enum NodeValue {
     LetVar(NodeValueLet),
     GetVar(NodeVarInfo),
     Operator(NodeValueOperator),
+    SysFunc(usize, Vec<Node>),
 }
 impl NodeValue {
     pub fn to_string(&self) -> String {
@@ -81,6 +84,7 @@ impl NodeValue {
             NodeValue::Nodes(nodes) => format!("Nodes:[{}]", nodes_to_string(&nodes, ",")),
             NodeValue::Operator(op) => format!("Operator:{}[{}]", op.flag, nodes_to_string(&op.nodes, ",")),
             NodeValue::GetVar(var) => format!("GetVar:{:?}", var),
+            NodeValue::SysFunc(no, nodes) => format!("SysFunc:{}:[{}]", no, nodes_to_string(&nodes, ",")),
             // _ => String::from(""),
         }
     }
@@ -90,6 +94,7 @@ impl NodeValue {
             NodeValue::S(v) => v.parse().unwrap_or(def_value),
             NodeValue::I(v) => *v,
             NodeValue::F(v) => *v as isize,
+            NodeValue::SysFunc(v, _) => *v as isize,
             _ => def_value,
         }
     }
@@ -174,13 +179,14 @@ pub struct NodeValueLet {
     pub value_node: Vec<Node>,
 }
 
-#[derive(Debug,Clone)]
+#[derive(Clone)]
 pub struct NodeContext {
     pub index: usize,
     pub callstack_level: usize,
     pub labels: HashMap<String, Node>,
     pub scopes: Vec<NodeScope>,
     pub files: Vec<String>,
+    pub sysfuncs: Vec<SysFuncInfo>,
 }
 
 impl NodeContext {
@@ -195,6 +201,7 @@ impl NodeContext {
             labels: HashMap::new(),
             scopes,
             files: vec![],
+            sysfuncs: vec![],
         }
     }
     // for file management
@@ -237,6 +244,43 @@ impl NodeContext {
         let scope = &self.scopes[i.level];
         Some(scope.var_values[i.no].clone())
     }
+    // add system func
+    pub fn add_sysfunc(&mut self, name: &str, args: Vec<SysArg>, func: SysFuncType) -> usize {
+        // add func to sysfuncs
+        let sys_no = self.sysfuncs.len();
+        let sfi = SysFuncInfo{
+            func: Box::new(func),
+            args,
+        };
+        self.sysfuncs.push(sfi);
+        // add name to scope
+        let scope = &mut self.scopes[0];
+        let no = scope.set_var(name, NodeValue::SysFunc(sys_no, vec![]));
+        scope.var_metas[no].read_only = true;
+        scope.var_metas[no].kind = NodeVarKind::SysFunction;
+        sys_no     
+    }
+}
+
+type SysFuncType = fn(&mut NodeContext, Vec<NodeValue>) -> NodeValue;
+
+#[derive(Clone)]
+pub struct SysFuncInfo {
+    pub func: Box<SysFuncType>,
+    pub args: Vec<SysArg>,
+}
+
+type SysArg = Vec<String>;
+pub fn sysargs(args: &[&[&str]]) -> Vec<SysArg> {
+    let mut result = vec![];
+    for arg in args.iter() {
+        let mut arg_res: SysArg = vec![];
+        for a in arg.iter() {
+            arg_res.push(String::from(*a));
+        }
+        result.push(arg_res);
+    }
+    result
 }
 
 #[derive(Debug,Clone)]
@@ -246,7 +290,7 @@ pub struct NodeVarInfo {
     pub name: Option<String>,
 }
 
-#[derive(Debug,Clone)]
+#[derive(Debug,Clone,PartialEq)]
 pub struct NodeVarMeta {
     pub read_only: bool,
     pub kind: NodeVarKind,
@@ -308,11 +352,12 @@ pub struct NodeValueOperator {
 }
 
 #[allow(dead_code)]
-#[derive(Debug,Clone,Copy)]
+#[derive(Debug,Clone,Copy,PartialEq)]
 pub enum NodeVarKind {
     Empty,
     Number,
     String,
+    SysFunction,
     Function,
     Array,
     Dict,

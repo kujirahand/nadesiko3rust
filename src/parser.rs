@@ -22,7 +22,6 @@ impl ParseError {
     } 
 }
 
-#[derive(Debug)]
 pub struct Parser {
     pub nodes: Vec<Node>,
     pub context: NodeContext,
@@ -84,6 +83,16 @@ impl Parser {
         }
         true
     }
+    fn stack_last_eq(&self, kind: NodeKind) -> bool {
+        if self.stack.len() == 0 { return false; }
+        let last_node = &self.stack[self.stack.len() - 1];
+        return last_node.kind == kind;
+    }
+    fn stack_last_eq_fn(&self, f: fn(n:&Node)->bool) -> bool {
+        if self.stack.len() == 0 { return false; }
+        let last_node = &self.stack[self.stack.len() - 1];
+        return f(last_node);
+    }
     fn sentence(&mut self) -> bool {
         // 「ここまで」があれば抜ける
         if self.cur.eq_kind(TokenKind::BlockEnd) { return false; }
@@ -99,8 +108,15 @@ impl Parser {
         // トークンの連続＋命令の場合
         while self.cur.can_read() {
             if self.cur.eq_kind(TokenKind::Eol) { break; }
-            if self.check_debug_print() { return true; }
             if !self.check_value() { break; }
+            // call function?
+            if self.check_debug_print() { return true; }
+            if self.stack_last_eq(NodeKind::CallSysFunc) {
+                let callfunc = self.stack.pop().unwrap();
+                // println!("@@@sentence@@@{:?}", callfunc);
+                self.nodes.push(callfunc);
+                return true;
+            }
         }
         // スタックの余剰があればエラー
         //todo
@@ -191,6 +207,15 @@ impl Parser {
                 self.throw_error_token("『(..)』の内側に値が必要です。", t);
                 return false;
             }
+            // 閉じ括弧まで繰り返し値を読む
+            while self.cur.can_read() {
+                if self.cur.eq_kind(TokenKind::ParenR) { break; }
+                if !self.check_value() {
+                    self.throw_error_token("『)』閉じカッコが見当たりません。", t);
+                    return false;
+                }
+                if self.stack_last_eq(NodeKind::CallSysFunc) { break; }
+            }
             let value_node = self.stack.pop().unwrap_or(Node::new_nop());
             if !self.cur.eq_kind(TokenKind::ParenR) {
                 self.throw_error_token("『)』閉じカッコが必要です。", t);
@@ -231,23 +256,42 @@ impl Parser {
         }
         false
     }
+
+    fn check_call_function(&mut self, node: &mut Node) -> bool {
+        let var_info = match &node.value {
+            NodeValue::GetVar(info) => info,
+            _ => return false,
+        };
+        let val = self.context.get_var_value(&var_info).unwrap();
+        match val {
+            NodeValue::SysFunc(no, _) => {
+                node.kind = NodeKind::CallSysFunc;
+                let mut arg_nodes = vec![];
+                let info:&SysFuncInfo = &self.context.sysfuncs[no];
+                // todo: 助詞を確認する
+                // 引数の数だけstackからpopする
+                for _arg in info.args.iter() {
+                    let n = self.stack.pop().unwrap_or(Node::new_nop());
+                    arg_nodes.push(n);
+                }
+                node.value = NodeValue::SysFunc(no, arg_nodes);
+                return true;
+            },
+            _ => {},    
+        }
+        false
+    }
+
     fn check_variable(&mut self) -> bool {
         if !self.cur.eq_kind(TokenKind::Word) { return false; }
         // 変数を得る
-        let node = self.get_variable();
+        let mut node = self.get_variable();
+        if self.check_call_function(&mut node) {
+            self.stack.push(node);
+            return true;
+        }
         self.stack.push(node);
         self.check_operator();
-        // 関数の引数だったりする？
-        while self.cur.can_read() {
-            if self.stack.len() == 0 { return false; }
-            let last_node = &self.stack[self.stack.len()-1];
-            match last_node.josi {
-                None => break,
-                Some(_) => {
-                    if !self.check_value() { break; }
-                }
-            }
-        }
         return true;
     }
     fn get_variable(&mut self) -> Node {

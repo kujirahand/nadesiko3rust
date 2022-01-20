@@ -25,6 +25,7 @@ pub fn run_nodes(ctx: &mut NodeContext, nodes: &Vec<Node>) -> NodeValue {
             NodeKind::GetVar => result = run_get_var(ctx, cur),
             NodeKind::Operator => result = run_operator(ctx, cur),
             NodeKind::DebugPrint => result = run_debug_print(ctx, cur),
+            NodeKind::CallSysFunc => result = run_call_sysfunc(ctx, cur),
             _ => {
                 println!("Not implement:{:?}", cur);
             }
@@ -43,6 +44,22 @@ fn run_debug_print(ctx: &mut NodeContext, node: &Node) -> NodeValue {
     let v = run_nodes(ctx, arg_nodes);
     println!("[DEBUG] {}", v.to_string());
     v
+}
+
+fn run_call_sysfunc(ctx: &mut NodeContext, node: &Node) -> NodeValue {
+    let mut args: Vec<NodeValue> = vec![];
+    let func_no = match &node.value {
+        NodeValue::SysFunc(no, nodes) => {
+            for n in nodes.iter() {
+                let v = run_nodes(ctx, &vec![n.clone()]);
+                args.push(v);
+            }
+            *no
+        }
+        _ => return NodeValue::Empty,
+    };
+    let info:&SysFuncInfo = &ctx.sysfuncs[func_no];
+    (*info.func)(ctx, args)
 }
 
 fn run_let(ctx: &mut NodeContext, node: &Node) -> NodeValue {
