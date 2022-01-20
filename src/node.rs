@@ -12,6 +12,7 @@ pub enum NodeKind {
     GetVar,
     Let,
     DebugPrint,
+    Operator,
 }
 
 #[derive(Debug,Clone)]
@@ -40,6 +41,7 @@ impl Node {
             NodeKind::Let => format!("Let:{}", self.value.to_string()),
             NodeKind::DebugPrint => format!("DebugPrint:{}", self.value.to_string()),
             NodeKind::GetVar => format!("GetVar:{}", self.value.to_string()),
+            NodeKind::Operator => format!("Operator:{}", self.value.to_string()),
             _ => format!("{:?}", self.kind),
         }
     }
@@ -51,7 +53,7 @@ pub enum NodeValue {
     S(String),
     I(isize),
     F(f64),
-    Nodes(Vec<Node>),
+    Nodes(Vec<Node>, String),
     LetVar(NodeValueLet),
     GetVar(NodeVarInfo),
 }
@@ -63,7 +65,7 @@ impl NodeValue {
             NodeValue::I(v) => format!("{}", v),
             NodeValue::F(v) => format!("{}", v),
             NodeValue::LetVar(v) => format!("{}={:?}", v.var_name, v.value_node),
-            NodeValue::Nodes(nodes) => format!("Nodes:[{}]", nodes_to_string(nodes, ",")),
+            NodeValue::Nodes(nodes, label) => format!("Nodes:{}[{}]", label, nodes_to_string(nodes, ",")),
             NodeValue::GetVar(var) => format!("GetVar:{:?}", var),
             // _ => String::from(""),
         }
@@ -75,6 +77,51 @@ impl NodeValue {
             NodeValue::I(v) => *v,
             NodeValue::F(v) => *v as isize,
             _ => def_value,
+        }
+    }
+    pub fn to_float(&self, def_value: f64) -> f64 {
+        match self {
+            NodeValue::Empty => def_value,
+            NodeValue::S(v) => v.parse().unwrap_or(def_value),
+            NodeValue::I(v) => *v as f64,
+            NodeValue::F(v) => *v as f64,
+            _ => def_value,
+        }
+    }
+    pub fn calc_plus(left: NodeValue, right: NodeValue) -> NodeValue {
+        match right {
+            NodeValue::I(rv) => NodeValue::I(left.to_int(0) + rv),
+            NodeValue::F(rv) => NodeValue::F(left.to_float(0.0) + rv),
+            NodeValue::S(rv) => NodeValue::S(format!("{}{}", left.to_string(), rv)),
+            _ => NodeValue::Empty,
+        }
+    }
+    pub fn calc_minus(left: NodeValue, right: NodeValue) -> NodeValue {
+        match right {
+            NodeValue::I(rv) => NodeValue::I(left.to_int(0) - rv),
+            NodeValue::F(rv) => NodeValue::F(left.to_float(0.0) - rv),
+            _ => NodeValue::Empty,
+        }
+    }
+    pub fn calc_mul(left: NodeValue, right: NodeValue) -> NodeValue {
+        match right {
+            NodeValue::I(rv) => NodeValue::I(left.to_int(0) * rv),
+            NodeValue::F(rv) => NodeValue::F(left.to_float(0.0) * rv),
+            _ => NodeValue::Empty,
+        }
+    }
+    pub fn calc_div(left: NodeValue, right: NodeValue) -> NodeValue {
+        match right {
+            NodeValue::I(rv) => NodeValue::I(left.to_int(0) / rv),
+            NodeValue::F(rv) => NodeValue::F(left.to_float(0.0) / rv),
+            _ => NodeValue::Empty,
+        }
+    }
+    pub fn calc_mod(left: NodeValue, right: NodeValue) -> NodeValue {
+        match right {
+            NodeValue::I(rv) => NodeValue::I(left.to_int(0) % rv),
+            NodeValue::F(rv) => NodeValue::F(left.to_float(0.0) % rv),
+            _ => NodeValue::Empty,
         }
     }
 }

@@ -39,6 +39,14 @@ impl TokenCur {
         t.kind
     }
 
+    pub fn eq_operator(&self) -> bool {
+        let k = self.peek_kind();
+        match k {
+            TokenKind::Plus | TokenKind::Minus | TokenKind::Mul | TokenKind::Div | TokenKind::Mod => true,
+            _ => false,
+        }
+    }
+
     pub fn peek(&self) -> Token {
         if !self.can_read() { return Token::new_str(TokenKind::None, "", 0); }
         let t = &self.tokens[self.index];

@@ -62,6 +62,7 @@ impl Parser {
     pub fn clone_context(&self) -> NodeContext {
         self.context.clone()
     }
+
     //-------------------------------------------------------------
     // parse
     //-------------------------------------------------------------
@@ -94,7 +95,8 @@ impl Parser {
         // コメント
         if self.check_comment() { return true; }
         if self.check_let() { return true; }
-
+        // もし文
+        if self.check_if() { return true; }
         // トークンの連続＋命令の場合
         while self.cur.can_read() {
             if self.cur.eq_kind(TokenKind::Eol) { break; }
@@ -112,6 +114,17 @@ impl Parser {
         self.nodes.push(node);
         true
     }
+    fn check_if(&mut self) -> bool {
+        if !self.cur.eq_kind(TokenKind::If) { return false; }
+        let mosi_t = self.cur.next(); // もし
+        // 条件式
+        if !self.check_value() {
+            self.throw_error_token("『もし』文で条件式がありません。", mosi_t);
+            return false;
+        }
+        // TODO
+        false
+    }
     fn check_debug_print(&mut self) -> bool {
         if !self.cur.eq_kind(TokenKind::DebugPrint) { return false; }
         let print_tok = self.cur.next();
@@ -120,7 +133,10 @@ impl Parser {
             return false;
         }
         let value:Node = self.stack.pop().unwrap_or(Node::new_nop());
-        let node = Node::new(NodeKind::DebugPrint, NodeValue::Nodes(vec![value]), print_tok.line, self.fileno);
+        let node = Node::new(
+            NodeKind::DebugPrint, 
+            NodeValue::Nodes(vec![value], String::from("デバッグ表示")), 
+            print_tok.line, self.fileno);
         self.nodes.push(node);
         true
     }
@@ -175,7 +191,7 @@ impl Parser {
             let i:isize = t.label.parse().unwrap_or(0);
             let node = Node::new(NodeKind::Int, NodeValue::I(i), t.line, self.fileno);
             self.stack.push(node);
-            self.check_calc_flag();
+            self.check_operator();
             return true;
         }
         if self.cur.eq_kind(TokenKind::Number) {
@@ -183,7 +199,7 @@ impl Parser {
             let v:f64 = t.label.parse().unwrap_or(0.0);
             let node = Node::new(NodeKind::Int, NodeValue::F(v), t.line, self.fileno);
             self.stack.push(node);
-            self.check_calc_flag();
+            self.check_operator();
             return true;
         }
         if self.cur.eq_kind(TokenKind::String) {
@@ -214,7 +230,7 @@ impl Parser {
             };
             let node = Node::new(NodeKind::GetVar, NodeValue::GetVar(var_info), t.line, self.fileno);
             self.stack.push(node);
-            self.check_calc_flag();
+            self.check_operator();
             return true;
         }
         false
@@ -222,7 +238,22 @@ impl Parser {
     fn get_scope_level(&self) -> usize {
         self.context.scopes.len() - 1
     }
-    fn check_calc_flag(&mut self) -> bool {
+    fn check_operator(&mut self) -> bool {
+        if self.cur.eq_operator() {
+            let op_t = self.cur.next();
+            if !self.check_value() {
+                self.throw_error_token(&format!("演算子『{}』の後に値がありません。", op_t.label), op_t);
+                return false;
+            }
+            let value_r = self.stack.pop().unwrap_or(Node::new_nop());
+            let value_l = self.stack.pop().unwrap_or(Node::new_nop());
+            let op_node = Node::new(
+                NodeKind::Operator,
+                NodeValue::Nodes(vec![value_l, value_r], String::from(op_t.label)),
+                op_t.line, self.fileno);
+            // todo: 演算子の順序
+            self.stack.push(op_node);
+        }
         // todo: check calc flag
         false
     }
@@ -250,7 +281,7 @@ mod test_parser {
             let node = &p.nodes[0];
             assert_eq!(node.kind, NodeKind::DebugPrint);
             let arg0:String = match &node.value {
-                NodeValue::Nodes(nodes) => {
+                NodeValue::Nodes(nodes, _) => {
                     if nodes.len() > 0 {
                         nodes[0].value.to_string()
                     } else {

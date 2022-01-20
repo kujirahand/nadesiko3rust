@@ -53,6 +53,7 @@ pub enum TokenKind {
     BlockBegin,
     BlockEnd,
     If,
+    Else,
     Repeat,
     Plus,
     Minus,
@@ -92,7 +93,8 @@ impl std::fmt::Display for Token {
             TokenKind::Div => format!("/"),
             TokenKind::Mod => format!("%"),
             TokenKind::Pow => format!("^"),
-            TokenKind::If => format!("If"),
+            TokenKind::If => format!("もし"),
+            TokenKind::Else => format!("違えば"),
             TokenKind::Repeat => format!("Repeat"),
             TokenKind::BlockBegin => format!("ここから"),
             TokenKind::BlockEnd => format!("ここまで"),
@@ -257,6 +259,14 @@ fn read_word(cur: &mut StrCur, line: &mut u32) -> Token {
             cur.seek(4);
             return Token::new_str(TokenKind::BlockBegin, "ここから", *line);
         }
+    }
+    if cur.eq_str("もし") {
+        if cur.eq_str("もしも") { cur.seek(3); } else { cur.seek(2); }
+        return Token::new_str(TokenKind::If, "もし", *line);
+    }
+    if cur.eq_str("違えば") {
+        cur.seek(3);
+        return Token::new_str(TokenKind::Else, "違えば", *line);
     }
     
     // ひらがなスタートなら1文字目は助詞にならない

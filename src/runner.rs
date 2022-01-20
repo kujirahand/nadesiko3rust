@@ -1,4 +1,5 @@
 // 走者 - Vec<Node>を順に実行
+use crate::{tokenizer, parser};
 use crate::node::*;
 
 pub fn indent_str(num: usize) -> String {
@@ -22,6 +23,7 @@ pub fn run_nodes(ctx: &mut NodeContext, nodes: &Vec<Node>) -> NodeValue {
             NodeKind::Let => result = run_let(ctx, cur),
             NodeKind::Int => result = cur.value.clone(),
             NodeKind::GetVar => result = run_get_var(ctx, cur),
+            NodeKind::Operator => result = run_operator(ctx, cur),
             NodeKind::DebugPrint => result = run_debug_print(ctx, cur),
             _ => {
                 println!("Not implement:{:?}", cur);
@@ -35,7 +37,7 @@ pub fn run_nodes(ctx: &mut NodeContext, nodes: &Vec<Node>) -> NodeValue {
 
 fn run_debug_print(ctx: &mut NodeContext, node: &Node) -> NodeValue {
     let arg_nodes: &Vec<Node> = match &node.value {
-        NodeValue::Nodes(ref nodes) => nodes,
+        NodeValue::Nodes(ref nodes, _) => nodes,
         _ => return NodeValue::Empty,
     };
     let v = run_nodes(ctx, arg_nodes);
@@ -66,21 +68,48 @@ fn run_get_var(ctx: &mut NodeContext, node: &Node) -> NodeValue {
     }
 }
 
+fn run_operator(ctx: &mut NodeContext, node: &Node) -> NodeValue {
+    let (nodes, op_str) = match &node.value {
+        NodeValue::Nodes(nodes, label) => (nodes, label),
+        _ => return NodeValue::Empty,
+    };
+    let value_r = run_nodes(ctx, vec![nodes[1]]);
+    let value_l = run_nodes(ctx, vec![nodes[0]]);
+    if op_str.eq("+") {
+        
+    }
+    NodeValue::Empty
+}
+
+// -----------------------------------------------
+// eval
+// -----------------------------------------------
+pub fn eval_str(code: &str) -> NodeValue {
+    let tokens = tokenizer::tokenize(code);
+    let mut p = parser::Parser::new();
+    p.parse(tokens, "run.nako3");
+    let mut ctx = p.clone_context();
+    let result = run_nodes(&mut ctx, &p.nodes);
+    result
+}
+
 #[cfg(test)]
 mod test_runner {
     use super::*;
-    use crate::tokenizer;
-    use crate::parser;
-    use crate::node;
+
+    #[test]
+    fn test_if() {
+        //let res = run_str("N=1;もしN=1ならば\n「OK」とデバッグ表示;\n違えば\n「NG」とデバッグ表示\nここまで;");
+        //assert_eq!(res.to_int(0), 123);
+    }
     #[test]
     fn test_debug_print() {
-        let t = tokenizer::tokenize("123とデバッグ表示;");
-        let mut p = parser::Parser::new();
-        p.parse(t, "a.nako3");
-        println!("{}", node::nodes_to_string(&p.nodes, "||"));
-        let mut ctx = p.clone_context();
-        assert_eq!(p.nodes.len() > 0, true);
-        let result:NodeValue = run_nodes(&mut ctx, &p.nodes);
-        assert_eq!(result.to_int(0), 123);
+        let res = eval_str("123とデバッグ表示");
+        assert_eq!(res.to_int(0), 123);
+    }
+    #[test]
+    fn test_calc() {
+        let res = eval_str("1+2とデバッグ表示");
+        assert_eq!(res.to_int(0), 123);
     }
 }
