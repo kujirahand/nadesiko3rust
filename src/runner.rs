@@ -76,6 +76,7 @@ fn run_operator(ctx: &mut NodeContext, node: &Node) -> NodeValue {
     let right = run_nodes(ctx, &vec![op.nodes[1].clone()]);
     let left = run_nodes(ctx, &vec![op.nodes[0].clone()]);
     match op.flag {
+        '(' => left,
         '+' => NodeValue::calc_plus(&left, &right),
         '-' => NodeValue::calc_minus(&left, &right),
         '*' => NodeValue::calc_mul(&left, &right),
@@ -117,5 +118,7 @@ mod test_runner {
         assert_eq!(res.to_int(0), 3);
         let res = eval_str("1+2*3とデバッグ表示");
         assert_eq!(res.to_int(0), 7);
+        let res = eval_str("(1+2)*3とデバッグ表示");
+        assert_eq!(res.to_int(0), 9);
     }
 }

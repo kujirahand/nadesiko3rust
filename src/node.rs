@@ -19,20 +19,22 @@ pub enum NodeKind {
 pub struct Node {
     pub kind: NodeKind,
     pub value: NodeValue,
+    pub josi: Option<String>,
     pub line: u32,
     pub fileno: u32,
 }
 impl Node {
-    pub fn new(kind: NodeKind, value: NodeValue, line: u32, fileno: u32) -> Self {
+    pub fn new(kind: NodeKind, value: NodeValue, josi: Option<String>, line: u32, fileno: u32) -> Self {
         Self {
             kind,
             value,
+            josi,
             line, 
             fileno
         }
     }
     pub fn new_nop() -> Self {
-        Node::new(NodeKind::Nop, NodeValue::Empty, 0, 0)
+        Node::new(NodeKind::Nop, NodeValue::Empty, None, 0, 0)
     }
     pub fn new_operator(operator: char, node_l: Node, node_r: Node, line: u32, fileno: u32) -> Self {
         Node::new(
@@ -41,7 +43,7 @@ impl Node {
                 flag: operator,
                 nodes: vec![node_l, node_r]
             }),
-            line, fileno
+            None, line, fileno
         )
     }
     pub fn to_string(&self) -> String {

@@ -109,7 +109,7 @@ impl Parser {
     fn check_comment(&mut self) -> bool {
         if !self.cur.eq_kind(TokenKind::Comment) { return false; }
         let t = self.cur.next();
-        let node = Node::new(NodeKind::Comment, NodeValue::S(t.label), t.line, self.fileno);
+        let node = Node::new(NodeKind::Comment, NodeValue::S(t.label), None, t.line, self.fileno);
         self.nodes.push(node);
         true
     }
@@ -135,6 +135,7 @@ impl Parser {
         let node = Node::new(
             NodeKind::DebugPrint, 
             NodeValue::Nodes(vec![value]),
+            None,
             print_tok.line, self.fileno);
         self.nodes.push(node);
         true
@@ -178,17 +179,34 @@ impl Parser {
         let let_node = Node::new(
             NodeKind::Let, 
             NodeValue::LetVar(node_value_let),
-            word.line,
-            self.fileno);
+            None, word.line, self.fileno);
         self.nodes.push(let_node);
         // todo: 配列
         false        
     }
     fn check_value(&mut self) -> bool {
+        if self.cur.eq_kind(TokenKind::ParenL) {
+            let t = self.cur.next();
+            if !self.check_value() {
+                self.throw_error_token("『(..)』の内側に値が必要です。", t);
+                return false;
+            }
+            let value_node = self.stack.pop().unwrap_or(Node::new_nop());
+            if !self.cur.eq_kind(TokenKind::ParenR) {
+                self.throw_error_token("『)』閉じカッコが必要です。", t);
+                return false;
+            }
+            let t_close = self.cur.next(); // skip '('
+            let mut node = Node::new_operator('(', value_node, Node::new_nop(), t.line, self.fileno);
+            node.josi = t_close.josi;
+            self.stack.push(node);
+            self.check_operator();
+            return true;
+        }
         if self.cur.eq_kind(TokenKind::Int) {
             let t = self.cur.next();
             let i:isize = t.label.parse().unwrap_or(0);
-            let node = Node::new(NodeKind::Int, NodeValue::I(i), t.line, self.fileno);
+            let node = Node::new(NodeKind::Int, NodeValue::I(i), t.josi, t.line, self.fileno);
             self.stack.push(node);
             self.check_operator();
             return true;
@@ -196,43 +214,62 @@ impl Parser {
         if self.cur.eq_kind(TokenKind::Number) {
             let t = self.cur.next();
             let v:f64 = t.label.parse().unwrap_or(0.0);
-            let node = Node::new(NodeKind::Int, NodeValue::F(v), t.line, self.fileno);
+            let node = Node::new(NodeKind::Int, NodeValue::F(v), t.josi, t.line, self.fileno);
             self.stack.push(node);
             self.check_operator();
             return true;
         }
         if self.cur.eq_kind(TokenKind::String) {
             let t = self.cur.next();
-            let node = Node::new(NodeKind::String, NodeValue::S(t.label), t.line, self.fileno);
+            let node = Node::new(NodeKind::String, NodeValue::S(t.label), t.josi, t.line, self.fileno);
             self.stack.push(node);
             // todo flag
             return true;
         }
-        if self.cur.eq_kind(TokenKind::Word) {
-            // 変数の参照
-            let t = self.cur.next();
-            let var_name = String::from(t.label);
-            let var_info = match self.context.find_var_info(&var_name) {
-                Some(mut i) => {
-                    i.name = Some(var_name);
-                    i
-                },
-                None => {
-                    let level = self.get_scope_level();
-                    let no = self.context.scopes[level].set_var(&var_name, NodeValue::Empty);
-                    NodeVarInfo {
-                        name: Some(var_name), 
-                        level,
-                        no
-                    }
-                },
-            };
-            let node = Node::new(NodeKind::GetVar, NodeValue::GetVar(var_info), t.line, self.fileno);
-            self.stack.push(node);
-            self.check_operator();
+        if self.check_variable() {
             return true;
         }
         false
+    }
+    fn check_variable(&mut self) -> bool {
+        if !self.cur.eq_kind(TokenKind::Word) { return false; }
+        // 変数を得る
+        let node = self.get_variable();
+        self.stack.push(node);
+        self.check_operator();
+        // 関数の引数だったりする？
+        while self.cur.can_read() {
+            if self.stack.len() == 0 { return false; }
+            let last_node = &self.stack[self.stack.len()-1];
+            match last_node.josi {
+                None => break,
+                Some(_) => {
+                    if !self.check_value() { break; }
+                }
+            }
+        }
+        return true;
+    }
+    fn get_variable(&mut self) -> Node {
+        let t = self.cur.next(); // 変数名
+        let var_name = String::from(t.label);
+        let var_info = match self.context.find_var_info(&var_name) {
+            Some(mut i) => {
+                i.name = Some(var_name);
+                i
+            },
+            None => {
+                let level = self.get_scope_level();
+                let no = self.context.scopes[level].set_var(&var_name, NodeValue::Empty);
+                NodeVarInfo {
+                    name: Some(var_name), 
+                    level,
+                    no
+                }
+            },
+        };
+        let node = Node::new(NodeKind::GetVar, NodeValue::GetVar(var_info), t.josi, t.line, self.fileno);
+        node
     }
     fn get_scope_level(&self) -> usize {
         self.context.scopes.len() - 1

@@ -13,7 +13,7 @@ mod operator;
 
 fn main() {
     // let tokens = tokenizer::tokenize("a = 30; b=40; aをデバッグ表示;");
-    let tokens = tokenizer::tokenize("5/2+1をデバッグ表示;");
+    let tokens = tokenizer::tokenize("2*(3+4)をデバッグ表示;");
     let mut parser = parser::Parser::new();
     parser.parse(tokens, "hoge");
     println!("--- parse ---");
