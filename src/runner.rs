@@ -73,12 +73,21 @@ fn run_operator(ctx: &mut NodeContext, node: &Node) -> NodeValue {
         NodeValue::Nodes(nodes, label) => (nodes, label),
         _ => return NodeValue::Empty,
     };
-    let value_r = run_nodes(ctx, vec![nodes[1]]);
-    let value_l = run_nodes(ctx, vec![nodes[0]]);
-    if op_str.eq("+") {
-        
+    let right = run_nodes(ctx, &vec![nodes[1].clone()]);
+    let left = run_nodes(ctx, &vec![nodes[0].clone()]);
+    if op_str.eq("") {
+        // todo: runtime error
+        return NodeValue::Empty;
     }
-    NodeValue::Empty
+    let op_char:char = op_str.chars().nth(0).unwrap_or('\0');
+    match op_char {
+        '+' => NodeValue::calc_plus(left, right),
+        '-' => NodeValue::calc_minus(left, right),
+        '*' => NodeValue::calc_mul(left, right),
+        '/' => NodeValue::calc_div(left, right),
+        '%' => NodeValue::calc_mod(left, right),
+        _ => NodeValue::Empty,
+    }
 }
 
 // -----------------------------------------------
@@ -110,6 +119,6 @@ mod test_runner {
     #[test]
     fn test_calc() {
         let res = eval_str("1+2とデバッグ表示");
-        assert_eq!(res.to_int(0), 123);
+        assert_eq!(res.to_int(0), 3);
     }
 }
