@@ -34,6 +34,16 @@ impl Node {
     pub fn new_nop() -> Self {
         Node::new(NodeKind::Nop, NodeValue::Empty, 0, 0)
     }
+    pub fn new_operator(operator: char, node_l: Node, node_r: Node, line: u32, fileno: u32) -> Self {
+        Node::new(
+            NodeKind::Operator, 
+            NodeValue::Operator(NodeValueOperator {
+                flag: operator,
+                nodes: vec![node_l, node_r]
+            }),
+            line, fileno
+        )
+    }
     pub fn to_string(&self) -> String {
         match self.kind {
             NodeKind::Int => format!("Int:{}", self.value.to_string()),
@@ -53,9 +63,10 @@ pub enum NodeValue {
     S(String),
     I(isize),
     F(f64),
-    Nodes(Vec<Node>, char),
+    Nodes(Vec<Node>),
     LetVar(NodeValueLet),
     GetVar(NodeVarInfo),
+    Operator(NodeValueOperator),
 }
 impl NodeValue {
     pub fn to_string(&self) -> String {
@@ -65,7 +76,8 @@ impl NodeValue {
             NodeValue::I(v) => format!("{}", v),
             NodeValue::F(v) => format!("{}", v),
             NodeValue::LetVar(v) => format!("{}={:?}", v.var_name, v.value_node),
-            NodeValue::Nodes(nodes, label) => format!("Nodes:{}[{}]", label, nodes_to_string(nodes, ",")),
+            NodeValue::Nodes(nodes) => format!("Nodes:[{}]", nodes_to_string(&nodes, ",")),
+            NodeValue::Operator(op) => format!("Operator:{}[{}]", op.flag, nodes_to_string(&op.nodes, ",")),
             NodeValue::GetVar(var) => format!("GetVar:{:?}", var),
             // _ => String::from(""),
         }
@@ -88,40 +100,67 @@ impl NodeValue {
             _ => def_value,
         }
     }
-    pub fn calc_plus(left: NodeValue, right: NodeValue) -> NodeValue {
-        match right {
-            NodeValue::I(rv) => NodeValue::I(left.to_int(0) + rv),
-            NodeValue::F(rv) => NodeValue::F(left.to_float(0.0) + rv),
-            NodeValue::S(rv) => NodeValue::S(format!("{}{}", left.to_string(), rv)),
+}
+
+impl NodeValue {
+    // calc method
+    pub fn calc_plus(left: &NodeValue, right: &NodeValue) -> NodeValue {
+        match (left, right) {
+            // number
+            (NodeValue::I(lv), NodeValue::I(rv)) => NodeValue::I(lv + rv),
+            (NodeValue::F(lv), NodeValue::I(rv)) => NodeValue::F(lv + *rv as f64),
+            (NodeValue::I(lv), NodeValue::F(rv)) => NodeValue::F(*lv as f64 + rv),
+            (NodeValue::F(lv), NodeValue::F(rv)) => NodeValue::F(lv + rv),
+            // string
+            (NodeValue::S(lv), NodeValue::S(rv)) => NodeValue::S(format!("{}{}", lv, rv)),
+            // string + number
+            (NodeValue::S(lv), NodeValue::I(rv)) => NodeValue::I(lv.parse().unwrap_or(0) as isize + rv),
+            (NodeValue::S(lv), NodeValue::F(rv)) => NodeValue::F(lv.parse().unwrap_or(0.0) as f64 + rv),
+            // other
             _ => NodeValue::Empty,
         }
     }
-    pub fn calc_minus(left: NodeValue, right: NodeValue) -> NodeValue {
+    pub fn calc_minus(left: &NodeValue, right: &NodeValue) -> NodeValue {
         match right {
             NodeValue::I(rv) => NodeValue::I(left.to_int(0) - rv),
             NodeValue::F(rv) => NodeValue::F(left.to_float(0.0) - rv),
             _ => NodeValue::Empty,
         }
     }
-    pub fn calc_mul(left: NodeValue, right: NodeValue) -> NodeValue {
-        match right {
-            NodeValue::I(rv) => NodeValue::I(left.to_int(0) * rv),
-            NodeValue::F(rv) => NodeValue::F(left.to_float(0.0) * rv),
-            _ => NodeValue::Empty,
+    pub fn calc_mul(left: &NodeValue, right: &NodeValue) -> NodeValue {
+        match (left, right) {
+            (NodeValue::I(lv), NodeValue::I(rv)) => NodeValue::I(lv * rv),
+            (NodeValue::I(lv), _) => NodeValue::F((*lv as f64) * right.to_float(0.0)),
+            (NodeValue::F(lv), _) => NodeValue::F(*lv * right.to_float(0.0)),
+            (NodeValue::S(lv), NodeValue::I(times)) => NodeValue::S(Self::repeat_str(lv, *times as usize)),
+            (_, _) => NodeValue::Empty,
         }
     }
-    pub fn calc_div(left: NodeValue, right: NodeValue) -> NodeValue {
-        match right {
-            NodeValue::I(rv) => NodeValue::I(left.to_int(0) / rv),
-            NodeValue::F(rv) => NodeValue::F(left.to_float(0.0) / rv),
-            _ => NodeValue::Empty,
+    fn repeat_str(s: &str, times: usize) -> String {
+        let mut res = String::new();
+        for _ in 0..times {
+            res.push_str(s);
+        }
+        res
+    }
+    pub fn calc_div(left: &NodeValue, right: &NodeValue) -> NodeValue {
+        match (left, right) {
+            (NodeValue::I(lv), NodeValue::I(rv)) => NodeValue::F(*lv as f64 / *rv as f64),
+            (NodeValue::I(lv), NodeValue::F(rv)) => NodeValue::F((*lv as f64) / *rv as f64),
+            (NodeValue::F(lv), NodeValue::I(rv)) => NodeValue::F((*lv as f64) / *rv as f64),
+            (NodeValue::F(lv), NodeValue::F(rv)) => NodeValue::F((*lv as f64) / *rv as f64),
+            (NodeValue::S(_), _) => NodeValue::F(left.to_float(0.0) / right.to_float(0.0)),
+            (_, _) => NodeValue::Empty,
         }
     }
-    pub fn calc_mod(left: NodeValue, right: NodeValue) -> NodeValue {
-        match right {
-            NodeValue::I(rv) => NodeValue::I(left.to_int(0) % rv),
-            NodeValue::F(rv) => NodeValue::F(left.to_float(0.0) % rv),
-            _ => NodeValue::Empty,
+    pub fn calc_mod(left: &NodeValue, right: &NodeValue) -> NodeValue {
+        match (left, right) {
+            (NodeValue::I(lv), NodeValue::I(rv)) => NodeValue::I(*lv % *rv),
+            (NodeValue::I(lv), NodeValue::F(rv)) => NodeValue::F((*lv as f64) % *rv as f64),
+            (NodeValue::F(lv), NodeValue::I(rv)) => NodeValue::F((*lv as f64) % *rv as f64),
+            (NodeValue::F(lv), NodeValue::F(rv)) => NodeValue::F((*lv as f64) % *rv as f64),
+            (NodeValue::S(_), _) => NodeValue::F(left.to_float(0.0) / right.to_float(0.0)),
+            (_, _) => NodeValue::Empty,
         }
     }
 }
@@ -258,6 +297,12 @@ impl NodeScope {
             }
         }
     }
+}
+
+#[derive(Debug,Clone)]
+pub struct NodeValueOperator {
+    pub flag: char,
+    pub nodes: Vec<Node>,
 }
 
 #[allow(dead_code)]

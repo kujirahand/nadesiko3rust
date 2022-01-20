@@ -37,7 +37,7 @@ pub fn run_nodes(ctx: &mut NodeContext, nodes: &Vec<Node>) -> NodeValue {
 
 fn run_debug_print(ctx: &mut NodeContext, node: &Node) -> NodeValue {
     let arg_nodes: &Vec<Node> = match &node.value {
-        NodeValue::Nodes(ref nodes, _) => nodes,
+        NodeValue::Nodes(ref nodes) => nodes,
         _ => return NodeValue::Empty,
     };
     let v = run_nodes(ctx, arg_nodes);
@@ -69,18 +69,18 @@ fn run_get_var(ctx: &mut NodeContext, node: &Node) -> NodeValue {
 }
 
 fn run_operator(ctx: &mut NodeContext, node: &Node) -> NodeValue {
-    let (nodes, op_char) = match &node.value {
-        NodeValue::Nodes(nodes, label) => (nodes, label),
+    let op = match &node.value {
+        NodeValue::Operator(op) => op,
         _ => return NodeValue::Empty,
     };
-    let right = run_nodes(ctx, &vec![nodes[1].clone()]);
-    let left = run_nodes(ctx, &vec![nodes[0].clone()]);
-    match op_char {
-        '+' => NodeValue::calc_plus(left, right),
-        '-' => NodeValue::calc_minus(left, right),
-        '*' => NodeValue::calc_mul(left, right),
-        '/' => NodeValue::calc_div(left, right),
-        '%' => NodeValue::calc_mod(left, right),
+    let right = run_nodes(ctx, &vec![op.nodes[1].clone()]);
+    let left = run_nodes(ctx, &vec![op.nodes[0].clone()]);
+    match op.flag {
+        '+' => NodeValue::calc_plus(&left, &right),
+        '-' => NodeValue::calc_minus(&left, &right),
+        '*' => NodeValue::calc_mul(&left, &right),
+        '/' => NodeValue::calc_div(&left, &right),
+        '%' => NodeValue::calc_mod(&left, &right),
         _ => NodeValue::Empty,
     }
 }
@@ -115,5 +115,7 @@ mod test_runner {
     fn test_calc() {
         let res = eval_str("1+2とデバッグ表示");
         assert_eq!(res.to_int(0), 3);
+        let res = eval_str("1+2*3とデバッグ表示");
+        assert_eq!(res.to_int(0), 7);
     }
 }

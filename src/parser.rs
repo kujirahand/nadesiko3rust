@@ -1,6 +1,7 @@
-use crate::tokenizer::*;
+use crate::token::*;
 use crate::node::*;
 use crate::tokencur::TokenCur;
+use crate::operator;
 
 #[derive(Debug,Clone)]
 pub struct ParseError {
@@ -133,7 +134,7 @@ impl Parser {
         let value:Node = self.stack.pop().unwrap_or(Node::new_nop());
         let node = Node::new(
             NodeKind::DebugPrint, 
-            NodeValue::Nodes(vec![value], '\0'),
+            NodeValue::Nodes(vec![value]),
             print_tok.line, self.fileno);
         self.nodes.push(node);
         true
@@ -239,20 +240,44 @@ impl Parser {
     fn check_operator(&mut self) -> bool {
         if self.cur.eq_operator() {
             let op_t = self.cur.next();
+            let cur_flag = op_t.as_char();
             if !self.check_value() {
                 self.throw_error_token(&format!("演算子『{}』の後に値がありません。", op_t.label), op_t);
                 return false;
             }
-            let value_r = self.stack.pop().unwrap_or(Node::new_nop());
-            let value_l = self.stack.pop().unwrap_or(Node::new_nop());
-            let op_node = Node::new(
-                NodeKind::Operator,
-                NodeValue::Nodes(vec![value_l, value_r], op_t.label.chars().nth(0).unwrap_or('\0')),
-                op_t.line, self.fileno);
-            // todo: 演算子の順序
+            // a + (b + c)
+            let value_bc = self.stack.pop().unwrap_or(Node::new_nop());
+            let value_a  = self.stack.pop().unwrap_or(Node::new_nop());
+            // 演算子の順序を確認
+            let pri_cur  = operator::get_priority(cur_flag);
+            let pri_next = operator::get_node_priority(&value_bc);
+            // [a +] [b * c] = priority[<] 入れ替えなし
+            // [a *] [b + c] = priority[>] 入れ替えあり => [a * b] + c
+            if pri_cur > pri_next {
+                // 入れ替え
+                match value_bc.value {
+                    NodeValue::Operator(mut op) => {
+                        let value_c = op.nodes.pop().unwrap();
+                        let value_b = op.nodes.pop().unwrap();
+                        let new_node = Node::new_operator(
+                            op.flag,
+                            Node::new_operator(cur_flag, value_a, value_b, value_bc.line, value_bc.fileno),
+                            value_c,
+                            value_bc.line, value_bc.fileno);
+                        self.stack.push(new_node);
+                    },
+                    _ => { self.throw_error_token("システムエラー::演算子", op_t); return false; }
+                }
+                return true;
+            }
+            // 入れ替えなし              
+            let op_node = Node::new_operator(
+                cur_flag, value_a, value_bc, 
+                op_t.line, self.fileno
+            );
             self.stack.push(op_node);
+            return true;
         }
-        // todo: check calc flag
         false
     }
 }
@@ -260,6 +285,8 @@ impl Parser {
 #[cfg(test)]
 mod test_parser {
     use super::*;
+    use crate::tokenizer::tokenize;
+
     #[test]
     fn test_parser_comment() {
         let t = tokenize("/*cmt*/");
@@ -279,7 +306,7 @@ mod test_parser {
             let node = &p.nodes[0];
             assert_eq!(node.kind, NodeKind::DebugPrint);
             let arg0:String = match &node.value {
-                NodeValue::Nodes(nodes, _) => {
+                NodeValue::Nodes(nodes) => {
                     if nodes.len() > 0 {
                         nodes[0].value.to_string()
                     } else {

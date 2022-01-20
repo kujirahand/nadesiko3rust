@@ -1,7 +1,7 @@
 // 予約語
 // @see https://github.com/kujirahand/nadesiko3/blob/master/src/nako_reserved_words.js
 
-use crate::tokenizer::TokenKind;
+use crate::token::TokenKind;
 
 pub fn check_kind(s: &str) -> TokenKind {
     // デバッグ用
