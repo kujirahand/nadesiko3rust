@@ -27,7 +27,6 @@ pub struct Parser {
     pub context: NodeContext,
     cur: TokenCur,
     fileno: u32,
-    files: Vec<String>,
     stack: Vec<Node>,
     errors: Vec<ParseError>,
     error_count: usize,
@@ -36,7 +35,6 @@ impl Parser {
     pub fn new() -> Self {
         Self {
             fileno: 0,
-            files: vec![],
             cur: TokenCur::new(vec![]), // dummy
             nodes: vec![],
             stack: vec![],
@@ -135,7 +133,7 @@ impl Parser {
         let value:Node = self.stack.pop().unwrap_or(Node::new_nop());
         let node = Node::new(
             NodeKind::DebugPrint, 
-            NodeValue::Nodes(vec![value], String::from("デバッグ表示")), 
+            NodeValue::Nodes(vec![value], '\0'),
             print_tok.line, self.fileno);
         self.nodes.push(node);
         true
@@ -249,7 +247,7 @@ impl Parser {
             let value_l = self.stack.pop().unwrap_or(Node::new_nop());
             let op_node = Node::new(
                 NodeKind::Operator,
-                NodeValue::Nodes(vec![value_l, value_r], String::from(op_t.label)),
+                NodeValue::Nodes(vec![value_l, value_r], op_t.label.chars().nth(0).unwrap_or('\0')),
                 op_t.line, self.fileno);
             // todo: 演算子の順序
             self.stack.push(op_node);

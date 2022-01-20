@@ -69,17 +69,12 @@ fn run_get_var(ctx: &mut NodeContext, node: &Node) -> NodeValue {
 }
 
 fn run_operator(ctx: &mut NodeContext, node: &Node) -> NodeValue {
-    let (nodes, op_str) = match &node.value {
+    let (nodes, op_char) = match &node.value {
         NodeValue::Nodes(nodes, label) => (nodes, label),
         _ => return NodeValue::Empty,
     };
     let right = run_nodes(ctx, &vec![nodes[1].clone()]);
     let left = run_nodes(ctx, &vec![nodes[0].clone()]);
-    if op_str.eq("") {
-        // todo: runtime error
-        return NodeValue::Empty;
-    }
-    let op_char:char = op_str.chars().nth(0).unwrap_or('\0');
     match op_char {
         '+' => NodeValue::calc_plus(left, right),
         '-' => NodeValue::calc_minus(left, right),

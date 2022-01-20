@@ -53,7 +53,7 @@ pub enum NodeValue {
     S(String),
     I(isize),
     F(f64),
-    Nodes(Vec<Node>, String),
+    Nodes(Vec<Node>, char),
     LetVar(NodeValueLet),
     GetVar(NodeVarInfo),
 }
@@ -242,12 +242,6 @@ impl NodeScope {
     }
     pub fn get_var_no(&self, name: &str) -> Option<&usize> {
         self.var_names.get(name)
-    }
-    pub fn get_var_value(&self, name: &str) -> Option<NodeValue> {
-        match self.var_names.get(name) {
-            None => None,
-            Some(no) => Some(self.var_values[*no].clone()),
-        }
     }
     pub fn set_var(&mut self, name: &str, new_value: NodeValue) -> usize {
         match self.var_names.get(name) {
