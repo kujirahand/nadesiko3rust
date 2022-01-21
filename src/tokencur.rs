@@ -47,6 +47,14 @@ impl TokenCur {
         }
     }
 
+    pub fn eq_operator_str(&self) -> bool {
+        let k = self.peek_kind();
+        match k {
+            TokenKind::And | TokenKind::Mul => true,
+            _ => false,
+        }
+    }
+
     pub fn peek(&self) -> Token {
         if !self.can_read() { return Token::new_str(TokenKind::None, "", 0); }
         let t = &self.tokens[self.index];

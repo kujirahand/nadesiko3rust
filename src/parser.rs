@@ -2,25 +2,7 @@ use crate::token::*;
 use crate::node::*;
 use crate::tokencur::TokenCur;
 use crate::operator;
-
-#[derive(Debug,Clone)]
-pub struct ParseError {
-    pub message: String,
-    pub line: u32,
-    pub fileno: u32,
-}
-impl ParseError {
-    pub fn new(message: String, line: u32, fileno: u32) -> ParseError {
-        Self {
-            message,
-            line,
-            fileno
-        }
-    }
-    pub fn to_string(&self) -> String {
-        format!("({}){}", self.line, self.message)
-    } 
-}
+use crate::josi_list;
 
 pub struct Parser {
     pub nodes: Vec<Node>,
@@ -28,7 +10,7 @@ pub struct Parser {
     cur: TokenCur,
     fileno: u32,
     stack: Vec<Node>,
-    errors: Vec<ParseError>,
+    errors: Vec<NodeError>,
     error_count: usize,
 }
 impl Parser {
@@ -47,8 +29,15 @@ impl Parser {
     pub fn has_error(&self) -> bool {
         self.error_count > 0
     }
+    pub fn get_error_str(&self) -> String {
+        let mut res = String::new();
+        for e in self.errors.iter() {
+            res.push_str(&format!("{}\n", e.to_string()));
+        }
+        res
+    }
     pub fn throw_error(&mut self, msg: String, line: u32) {
-        let err = ParseError::new(msg, line, self.fileno);
+        let err = NodeError::new(msg, line, self.fileno);
         println!("[ERROR] {}", &err.to_string());
         self.errors.push(err);
         self.error_count += 1;
@@ -57,42 +46,42 @@ impl Parser {
         let message = format!("『{}』の近くで、{}。", t.label, msg);
         self.throw_error(message, t.line);
     }
-    pub fn clone_context(&self) -> NodeContext {
-        self.context.clone()
-    }
 
     //-------------------------------------------------------------
     // parse
     //-------------------------------------------------------------
-    pub fn parse(&mut self, tokens: Vec<Token>, filename: &str) -> bool {
+    pub fn parse(&mut self, tokens: Vec<Token>, filename: &str) -> Result<Vec<Node>, String> {
         self.cur = TokenCur::new(tokens);
         self.fileno = self.context.set_filename(filename);
-        self.sentence_list()
+        self.get_sentence_list()
     }
-    fn sentence_list(&mut self) -> bool {
+
+    fn get_sentence_list(&mut self) -> Result<Vec<Node>, String> {
+        let mut tmp = vec![];
+        std::mem::swap(&mut self.nodes, &mut tmp);
+        let mut last_index = 0;
         while self.cur.can_read() {
-            if self.has_error() { return false; }
+            if self.has_error() { return Err(self.get_error_str()); }
             if self.cur.eq_kind(TokenKind::BlockEnd) { break; }
-            let tmp_index = self.cur.index;
             self.sentence();
-            if self.cur.index == tmp_index {
+            if self.cur.index == last_index {
                 let t = self.cur.peek();
                 println!("[error](sentence_list):{}(line={})", t, t.line);
                 self.cur.next_kind();
             }
+            last_index = self.cur.index;
         }
-        true
+        std::mem::swap(&mut self.nodes, &mut tmp);
+        Ok(tmp)
     }
+
+
     fn stack_last_eq(&self, kind: NodeKind) -> bool {
         if self.stack.len() == 0 { return false; }
         let last_node = &self.stack[self.stack.len() - 1];
         return last_node.kind == kind;
     }
-    fn stack_last_eq_fn(&self, f: fn(n:&Node)->bool) -> bool {
-        if self.stack.len() == 0 { return false; }
-        let last_node = &self.stack[self.stack.len() - 1];
-        return f(last_node);
-    }
+
     fn sentence(&mut self) -> bool {
         // 「ここまで」があれば抜ける
         if self.cur.eq_kind(TokenKind::BlockEnd) { return false; }
@@ -110,7 +99,6 @@ impl Parser {
             if self.cur.eq_kind(TokenKind::Eol) { break; }
             if !self.check_value() { break; }
             // call function?
-            if self.check_debug_print() { return true; }
             if self.stack_last_eq(NodeKind::CallSysFunc) {
                 let callfunc = self.stack.pop().unwrap();
                 // println!("@@@sentence@@@{:?}", callfunc);
@@ -118,10 +106,14 @@ impl Parser {
                 return true;
             }
         }
+        for n in self.stack.iter() {
+            println!("@stack@:{:?}", n);
+        }
         // スタックの余剰があればエラー
         //todo
         true
     }
+
     fn check_comment(&mut self) -> bool {
         if !self.cur.eq_kind(TokenKind::Comment) { return false; }
         let t = self.cur.next();
@@ -129,33 +121,69 @@ impl Parser {
         self.nodes.push(node);
         true
     }
+
+    fn get_if_cond(&mut self, mosi_t: Token) -> Option<Node> {
+        // 条件式を取得
+        if !self.check_value() {
+            self.throw_error_token("『もし』文で条件式がありません。", mosi_t);
+            return None;
+        }
+        // 条件を確認
+        let mut cond1 = self.stack.pop().unwrap_or(Node::new_nop());
+        let josi1 = cond1.get_josi_str();
+        match josi_list::is_josi_mosi(&josi1) {
+            Some(active) => {
+                if !active {
+                    // 否定形にする
+                    cond1 = Node::new_operator('!', cond1, Node::new_nop(), mosi_t.line, self.fileno);
+                    cond1.josi = Some(josi1.clone());
+                }
+            },
+            None => {
+                // 条件が(cond1 が cond2)の場合
+                if josi1.eq("が") || josi1.eq("は") {
+                    if !self.check_value() {
+                        self.throw_error_token("『もし(比較式)ならば』と記述する必要があります。", mosi_t);
+                        return None;
+                    }
+                    let cond2 = self.stack.pop().unwrap_or(Node::new_nop());
+                    let josi2 = cond2.get_josi_str();
+                    match josi_list::is_josi_mosi(&josi2) {
+                        Some(active) => {
+                            cond1 = Node::new_operator(if active {'='} else {'!'}, cond1, cond2, mosi_t.line, self.fileno);
+                            cond1.josi = Some(josi2);
+                        },
+                        None => {
+                            self.throw_error_token("『もし(値1)が(値2)ならば』と記述する必要があります。", mosi_t);
+                            return None;
+                        }
+                    }
+                } else {
+                    self.throw_error_token("『もし(比較式)ならば』と記述する必要があります。", mosi_t);
+                    return None;
+                }
+            }
+        }
+        Some(cond1)
+    }
     fn check_if(&mut self) -> bool {
         if !self.cur.eq_kind(TokenKind::If) { return false; }
         let mosi_t = self.cur.next(); // もし
-        // 条件式
-        if !self.check_value() {
-            self.throw_error_token("『もし』文で条件式がありません。", mosi_t);
-            return false;
+        let cond = match self.get_if_cond(mosi_t) {
+            Some(n) => n,
+            None => return false,
+        };
+        // コメントがあれば飛ばす
+        while self.cur.eq_kind(TokenKind::Comment) { self.cur.next(); }
+        // 単文か複文か
+        let multi_sentence = self.cur.eq_kind(TokenKind::Eol);
+        if multi_sentence {
+            // TODO
         }
         // TODO
         false
     }
-    fn check_debug_print(&mut self) -> bool {
-        if !self.cur.eq_kind(TokenKind::DebugPrint) { return false; }
-        let print_tok = self.cur.next();
-        if !self.stack.len() == 0 {
-            self.throw_error_token("『デバッグ表示』で引数がありません。", print_tok);
-            return false;
-        }
-        let value:Node = self.stack.pop().unwrap_or(Node::new_nop());
-        let node = Node::new(
-            NodeKind::DebugPrint, 
-            NodeValue::Nodes(vec![value]),
-            None,
-            print_tok.line, self.fileno);
-        self.nodes.push(node);
-        true
-    }
+
     fn check_let(&mut self) -> bool {
         if !self.cur.eq_kinds(&[TokenKind::Word, TokenKind::Eq]) { return false; }
         let word: Token = self.cur.next();
@@ -200,32 +228,40 @@ impl Parser {
         // todo: 配列
         false        
     }
-    fn check_value(&mut self) -> bool {
-        if self.cur.eq_kind(TokenKind::ParenL) {
-            let t = self.cur.next();
+
+    fn check_paren(&mut self) -> bool {
+        // ( ... ) の場合
+        if !self.cur.eq_kind(TokenKind::ParenL) { return false; }
+        
+        let t = self.cur.next(); // skip '('
+        if !self.check_value() {
+            self.throw_error_token("『(..)』の内側に値が必要です。", t);
+            return false;
+        }
+        // 閉じ括弧まで繰り返し値を読む
+        while self.cur.can_read() {
+            if self.cur.eq_kind(TokenKind::ParenR) { break; }
             if !self.check_value() {
-                self.throw_error_token("『(..)』の内側に値が必要です。", t);
+                self.throw_error_token("『)』閉じカッコが見当たりません。", t);
                 return false;
             }
-            // 閉じ括弧まで繰り返し値を読む
-            while self.cur.can_read() {
-                if self.cur.eq_kind(TokenKind::ParenR) { break; }
-                if !self.check_value() {
-                    self.throw_error_token("『)』閉じカッコが見当たりません。", t);
-                    return false;
-                }
-                if self.stack_last_eq(NodeKind::CallSysFunc) { break; }
-            }
-            let value_node = self.stack.pop().unwrap_or(Node::new_nop());
-            if !self.cur.eq_kind(TokenKind::ParenR) {
-                self.throw_error_token("『)』閉じカッコが必要です。", t);
-                return false;
-            }
-            let t_close = self.cur.next(); // skip '('
-            let mut node = Node::new_operator('(', value_node, Node::new_nop(), t.line, self.fileno);
-            node.josi = t_close.josi;
-            self.stack.push(node);
-            self.check_operator();
+            if self.stack_last_eq(NodeKind::CallSysFunc) { break; }
+        }
+        let value_node = self.stack.pop().unwrap_or(Node::new_nop());
+        if !self.cur.eq_kind(TokenKind::ParenR) {
+            self.throw_error_token("『)』閉じカッコが必要です。", t);
+            return false;
+        }
+        let t_close = self.cur.next(); // skip ')'
+        let mut node = Node::new_operator('(', value_node, Node::new_nop(), t.line, self.fileno);
+        node.josi = t_close.josi;
+        self.stack.push(node);
+        self.check_operator();
+        return true;
+    }
+
+    fn check_value(&mut self) -> bool {
+        if self.check_paren() {
             return true;
         }
         if self.cur.eq_kind(TokenKind::Int) {
@@ -244,11 +280,11 @@ impl Parser {
             self.check_operator();
             return true;
         }
-        if self.cur.eq_kind(TokenKind::String) {
+        if self.cur.eq_kind(TokenKind::String) || self.cur.eq_kind(TokenKind::StringEx) {
             let t = self.cur.next();
             let node = Node::new(NodeKind::String, NodeValue::S(t.label), t.josi, t.line, self.fileno);
             self.stack.push(node);
-            // todo flag
+            self.check_operator_str();
             return true;
         }
         if self.check_variable() {
@@ -361,6 +397,27 @@ impl Parser {
         }
         false
     }
+    fn check_operator_str(&mut self) -> bool {
+        if self.cur.eq_operator_str() {
+            let op_t = self.cur.next();
+            let cur_flag = op_t.as_char();
+            if !self.check_value() {
+                self.throw_error_token(&format!("演算子『{}』の後に値がありません。", op_t.label), op_t);
+                return false;
+            }
+            // a & b
+            let value_b = self.stack.pop().unwrap_or(Node::new_nop());
+            let value_a  = self.stack.pop().unwrap_or(Node::new_nop());
+            // 文字列に関しては式の入れ替え不要              
+            let op_node = Node::new_operator(
+                cur_flag, value_a, value_b, 
+                op_t.line, self.fileno
+            );
+            self.stack.push(op_node);
+            return true;
+        }
+        false
+    }
 }
 
 #[cfg(test)]
@@ -376,30 +433,6 @@ mod test_parser {
         let node = &p.nodes[0];
         assert_eq!(node.kind, NodeKind::Comment);
         assert_eq!(node.value.to_string(), String::from("cmt"));
-    }
-
-    #[test]
-    fn test_parser_print() {
-        let t = tokenize("123をデバッグ表示");
-        let mut p = Parser::new();
-        assert_eq!(p.parse(t, "hoge.nako3"), true);
-        if p.nodes.len() > 0 {
-            let node = &p.nodes[0];
-            assert_eq!(node.kind, NodeKind::DebugPrint);
-            let arg0:String = match &node.value {
-                NodeValue::Nodes(nodes) => {
-                    if nodes.len() > 0 {
-                        nodes[0].value.to_string()
-                    } else {
-                        "".to_string()
-                    }
-                },
-                _ => String::from(""),
-            };
-            assert_eq!(arg0, String::from("123"));
-        } else {
-            assert_eq!("デバッグ表示", "");
-        }
     }
 
     #[test]

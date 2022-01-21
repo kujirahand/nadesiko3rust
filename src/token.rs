@@ -29,7 +29,7 @@ pub enum TokenKind {
     Div,
     Mod,
     Pow,
-    DebugPrint,
+    And,
 }
 
 #[derive(Debug,Clone)]
@@ -97,12 +97,12 @@ impl std::fmt::Display for Token {
             TokenKind::Div => format!("/"),
             TokenKind::Mod => format!("%"),
             TokenKind::Pow => format!("^"),
+            TokenKind::And => format!("&"),
             TokenKind::If => format!("もし"),
             TokenKind::Else => format!("違えば"),
             TokenKind::Repeat => format!("Repeat"),
             TokenKind::BlockBegin => format!("ここから"),
             TokenKind::BlockEnd => format!("ここまで"),
-            TokenKind::DebugPrint => format!("デバッグ表示"),
             _ => format!("{:?}", self),
         };
         write!(f, "{}", s)

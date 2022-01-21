@@ -78,8 +78,13 @@ pub fn convert(src: &str) -> String {
                 continue;
             }
         }
-        // others
-        result.push(ch_half);
+        // その他の変換
+        let cc = match ch_half {
+            '。' => ';', // 語尾
+            '、' => ',',
+            _ => ch_half,
+        };
+        result.push(cc);
     }
     return result;
 }

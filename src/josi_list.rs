@@ -33,15 +33,19 @@ pub fn read_josi(cur: &mut StrCur) -> Option<String> {
     None
 }
 
-// 「もし」文で使う助詞かどうか
-pub fn is_josi_mosi(josi: &str) -> bool {
-  let josi_list = [
-      "でなければ", "なければ", "ならば", "なら", "たら", "れば"
-  ];
+// 「もし」文で使う助詞かどうか(助詞があればSome/肯定ならtrue,否定ならfalse)
+pub fn is_josi_mosi(josi: &str) -> Option<bool> {
+  // 肯定助詞
+  let josi_list = ["ならば", "なら", "たら", "れば"];
   for w in josi_list {
-    if w == josi { return true }
+    if w == josi { return Some(true) }
   }
-  false
+  // 否定助詞
+  let josi_list = ["でなければ", "なければ"];
+  for w in josi_list {
+    if w == josi { return Some(false) }
+  }
+  None
 }
 
 // 意味のない助詞かどうか(削除する)

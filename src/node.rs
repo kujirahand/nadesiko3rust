@@ -11,12 +11,11 @@ pub enum NodeKind {
     StringEx,
     GetVar,
     Let,
-    DebugPrint,
     Operator,
     CallSysFunc,
 }
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub struct Node {
     pub kind: NodeKind,
     pub value: NodeValue,
@@ -47,12 +46,17 @@ impl Node {
             None, line, fileno
         )
     }
+    pub fn get_josi_str(&self) -> String {
+        match &self.josi {
+            Some(josi_str) =>  josi_str.clone(),
+            None => String::from(""),
+        }
+    }
     pub fn to_string(&self) -> String {
         match self.kind {
             NodeKind::Int => format!("Int:{}", self.value.to_string()),
             NodeKind::Comment => format!("Comment:{}", self.value.to_string()),
             NodeKind::Let => format!("Let:{}", self.value.to_string()),
-            NodeKind::DebugPrint => format!("DebugPrint:{}", self.value.to_string()),
             NodeKind::GetVar => format!("GetVar:{}", self.value.to_string()),
             NodeKind::Operator => format!("Operator:{}", self.value.to_string()),
             NodeKind::CallSysFunc => format!("CallSysFunc:{}", self.value.to_string()),
@@ -71,7 +75,7 @@ pub enum NodeValue {
     LetVar(NodeValueLet),
     GetVar(NodeVarInfo),
     Operator(NodeValueOperator),
-    SysFunc(usize, Vec<Node>),
+    SysFunc(usize, Vec<Node>), // (FuncNo, Args) SysFuncNo link to context.sysfuncs[FuncNo]
 }
 impl NodeValue {
     pub fn to_string(&self) -> String {
@@ -249,7 +253,7 @@ impl NodeContext {
         // add func to sysfuncs
         let sys_no = self.sysfuncs.len();
         let sfi = SysFuncInfo{
-            func: Box::new(func),
+            func,
             args,
         };
         self.sysfuncs.push(sfi);
@@ -266,7 +270,7 @@ type SysFuncType = fn(&mut NodeContext, Vec<NodeValue>) -> NodeValue;
 
 #[derive(Clone)]
 pub struct SysFuncInfo {
-    pub func: Box<SysFuncType>,
+    pub func: SysFuncType,
     pub args: Vec<SysArg>,
 }
 
@@ -372,4 +376,23 @@ pub fn nodes_to_string(nodes: &Vec<Node>, delimiter: &str) -> String {
         }
     }
     r
+}
+
+#[derive(Debug,Clone)]
+pub struct NodeError {
+    pub message: String,
+    pub line: u32,
+    pub fileno: u32,
+}
+impl NodeError {
+    pub fn new(message: String, line: u32, fileno: u32) -> NodeError {
+        Self {
+            message,
+            line,
+            fileno
+        }
+    }
+    pub fn to_string(&self) -> String {
+        format!("({}){}", self.line, self.message)
+    } 
 }

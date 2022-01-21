@@ -1,6 +1,8 @@
 // 走者 - Vec<Node>を順に実行
 use crate::{tokenizer, parser};
 use crate::node::*;
+use crate::sys_function_debug;
+use crate::sys_function;
 
 pub fn indent_str(num: usize) -> String {
     let mut s = String::new();
@@ -17,33 +19,25 @@ pub fn run_nodes(ctx: &mut NodeContext, nodes: &Vec<Node>) -> NodeValue {
     let mut index = 0;
     while index < nodes_len {
         let cur:&Node = &nodes[index];
-        println!("[run]({:02}) {}{}", ctx.index, indent_str(ctx.callstack_level-1), cur.to_string());
+        println!("[RUN]({:02}) {}{}", ctx.index, indent_str(ctx.callstack_level-1), cur.to_string());
         match cur.kind {
             NodeKind::Comment => {},
             NodeKind::Let => result = run_let(ctx, cur),
             NodeKind::Int => result = cur.value.clone(),
+            NodeKind::Number => result = cur.value.clone(),
+            NodeKind::String => result = cur.value.clone(),
+            NodeKind::StringEx => result = cur.value.clone(), // TODO: 変数の展開
             NodeKind::GetVar => result = run_get_var(ctx, cur),
             NodeKind::Operator => result = run_operator(ctx, cur),
-            NodeKind::DebugPrint => result = run_debug_print(ctx, cur),
             NodeKind::CallSysFunc => result = run_call_sysfunc(ctx, cur),
             _ => {
-                println!("Not implement:{:?}", cur);
+                println!("[エラー] runner未実装のノード :{:?}", cur);
             }
         }
         index += 1;
     }
     ctx.callstack_level -= 1;
     result
-}
-
-fn run_debug_print(ctx: &mut NodeContext, node: &Node) -> NodeValue {
-    let arg_nodes: &Vec<Node> = match &node.value {
-        NodeValue::Nodes(ref nodes) => nodes,
-        _ => return NodeValue::Empty,
-    };
-    let v = run_nodes(ctx, arg_nodes);
-    println!("[DEBUG] {}", v.to_string());
-    v
 }
 
 fn run_call_sysfunc(ctx: &mut NodeContext, node: &Node) -> NodeValue {
@@ -59,7 +53,7 @@ fn run_call_sysfunc(ctx: &mut NodeContext, node: &Node) -> NodeValue {
         _ => return NodeValue::Empty,
     };
     let info:&SysFuncInfo = &ctx.sysfuncs[func_no];
-    (*info.func)(ctx, args)
+    (info.func)(ctx, args)
 }
 
 fn run_let(ctx: &mut NodeContext, node: &Node) -> NodeValue {
@@ -106,13 +100,42 @@ fn run_operator(ctx: &mut NodeContext, node: &Node) -> NodeValue {
 // -----------------------------------------------
 // eval
 // -----------------------------------------------
-pub fn eval_str(code: &str) -> NodeValue {
-    let tokens = tokenizer::tokenize(code);
+#[derive(Debug,Clone)]
+pub struct RunOption {
+    pub use_sysfunc: bool,
+    pub debug: bool,
+}
+impl RunOption {
+    pub fn normal() -> Self {
+        Self { use_sysfunc: true, debug: false }
+    }
+    pub fn simple() -> Self {
+        Self { use_sysfunc: false, debug: true }
+    }
+}
+pub fn eval(code: &str, options: RunOption) -> Result<NodeValue,String> {
+    // 意味解析器を初期化
     let mut p = parser::Parser::new();
-    p.parse(tokens, "run.nako3");
-    let mut ctx = p.clone_context();
-    let result = run_nodes(&mut ctx, &p.nodes);
-    result
+    if options.use_sysfunc {
+        sys_function::register(&mut p.context);
+    } else {
+        sys_function_debug::register(&mut p.context);
+    }
+    // 字句解析
+    let tokens = tokenizer::tokenize(code);
+    // 意味解析
+    let nodes = match p.parse(tokens, "eval.nako3") {
+        Ok(nodes) => nodes,
+        Err(e) => { return Err(e); }
+    };
+    let result = run_nodes(&mut p.context, &nodes);
+    Ok(result)
+}
+pub fn eval_str(code: &str) -> String {
+    match eval(code, RunOption::normal()) {
+        Ok(v) => v.to_string(),
+        Err(e) => format!("!!{}", e),
+    }
 }
 
 #[cfg(test)]
@@ -125,17 +148,25 @@ mod test_runner {
         //assert_eq!(res.to_int(0), 123);
     }
     #[test]
+    fn test_print() {
+        let res = eval("123と表示", RunOption::normal());
+        assert_eq!(res, Ok(NodeValue::I(123)));
+        let res = eval_str("「穏やかな心は体に良い」と表示");
+        assert_eq!(res, String::from("穏やかな心は体に良い"));
+    }
+
+    #[test]
     fn test_debug_print() {
-        let res = eval_str("123とデバッグ表示");
-        assert_eq!(res.to_int(0), 123);
+        let res = eval("123と表示", RunOption::simple());
+        assert_eq!(res, Ok(NodeValue:I(123)));
     }
     #[test]
     fn test_calc() {
-        let res = eval_str("1+2とデバッグ表示");
-        assert_eq!(res.to_int(0), 3);
-        let res = eval_str("1+2*3とデバッグ表示");
-        assert_eq!(res.to_int(0), 7);
-        let res = eval_str("(1+2)*3とデバッグ表示");
-        assert_eq!(res.to_int(0), 9);
+        let res = eval_str("1+2と表示");
+        assert_eq!(res, String::from("3"));
+        let res = eval_str("1+2*3と表示");
+        assert_eq!(res, String::from("7"));
+        let res = eval_str("(1+2)*3と表示");
+        assert_eq!(res, String::from("9"));
     }
 }

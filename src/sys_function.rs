@@ -7,14 +7,10 @@ pub fn register(ctx: &mut NodeContext) {
 }
 
 fn sys_print(_: &mut NodeContext, args: Vec<NodeValue>) -> NodeValue {
-    let mut ss = String::new();
-    for a in args.iter() {
-        let s = a.to_string();
-        ss.push_str(&s);
-    }
-    println!("{}", ss);
-    NodeValue::Empty // Emptyにして変数「それ」を更新しない
-}
+    let s = if args.len() > 0 { args[0].to_string() } else { String::from("<表示内容がありません>") };
+    println!("{}", s);
+    NodeValue::S(s)
+} 
 
 fn sys_add(_: &mut NodeContext, args: Vec<NodeValue>) -> NodeValue {
     let a = &args[0];

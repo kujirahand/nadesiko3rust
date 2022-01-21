@@ -63,6 +63,7 @@ pub fn tokenize(src: &str) -> Vec<Token> {
             '*' => { flag_push_josi!(TokenKind::Mul, result, cur, line); continue; },
             '%' => { flag_push_josi!(TokenKind::Mod, result, cur, line); continue; },
             '^' => { flag_push!(TokenKind::Pow, result, cur, line); continue; },
+            '&' => { flag_push!(TokenKind::And, result, cur, line); continue; },
             '\\' => { flag_push!(TokenKind::Flag, result, cur, line); continue; },
             '`' => { flag_push!(TokenKind::Flag, result, cur, line); continue; },
             '|' => { flag_push!(TokenKind::Flag, result, cur, line); continue; },
@@ -217,12 +218,6 @@ fn delete_okurigana(word: Vec<char>) -> Vec<char> {
     result
 }
 
-fn delete_okurigana_str(word: &str) -> String {
-    let word_v:Vec<char> = word.chars().collect();
-    let res_v = delete_okurigana(word_v);
-    res_v.iter().collect()
-}
-
 fn read_string(cur: &mut StrCur, line: &mut u32, end_flag: char, ex_str: bool) -> Token {
     cur.next(); // begin_flag
     let mut result: Vec<char> = vec![];
@@ -252,6 +247,13 @@ fn read_string(cur: &mut StrCur, line: &mut u32, end_flag: char, ex_str: bool) -
 #[cfg(test)]
 mod test_tokenizer {
     use super::*;
+
+    fn delete_okurigana_str(word: &str) -> String {
+        let word_v:Vec<char> = word.chars().collect();
+        let res_v = delete_okurigana(word_v);
+        res_v.iter().collect()
+    }
+    
     #[test]
     fn test_tokenize() {
         let t = tokenize("//abc");

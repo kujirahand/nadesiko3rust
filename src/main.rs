@@ -11,20 +11,33 @@ mod node;
 mod runner;
 mod operator;
 mod sys_function;
+mod sys_function_debug;
 
 
 fn main() {
-    // let tokens = tokenizer::tokenize("a = 30; b=40; aをデバッグ表示;");
-    let tokens = tokenizer::tokenize("(2に3を足す)を表示;");
+    // let src = "a = 30; b=40; aをデバッグ表示;";
+    // let src = "(2に3を足す)を表示;";
+    let src = "「hoge」を表示";
+    
+    // prepare
     let mut parser = parser::Parser::new();
     sys_function::register(&mut parser.context);
-    parser.parse(tokens, "a.nako3");
+    // tokenizer
+    println!("--- tokenize ---");
+    let tokens = tokenizer::tokenize(src);
+    println!("{:?}", tokens);
     println!("--- parse ---");
-    println!("{}", node::nodes_to_string(&parser.nodes, "\n"));
-    let mut ctx = parser.clone_context();
-    // println!("--- scopes ---\n{:?}----\n", ctx.scopes);
+    let nodes = match parser.parse(tokens, "a.nako3") {
+        Ok(nodes) => nodes,
+        Err(e) => { println!("!!{}", e); return },
+    };
+    println!("{}", node::nodes_to_string(&nodes, "\n"));
     println!("--- run ---");
-    let v = runner::run_nodes(&mut ctx, &parser.nodes);
+    let v = runner::run_nodes(&mut parser.context, &nodes);
     println!("{:?} || {}", v, v.to_string());
+    
+    // ---------------
+    println!("=== easy method ===");
+    runner::eval_str("「気前よく与えてより豊かになる人がいる。」と表示。");
 }
 
