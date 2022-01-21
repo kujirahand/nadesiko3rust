@@ -1,5 +1,5 @@
 use crate::node::*;
-
+use crate::context::*;
 
 pub fn register(ctx: &mut NodeContext) {
     ctx.add_sysfunc("表示", sysargs(&[&["を", "と"]]), sys_print);

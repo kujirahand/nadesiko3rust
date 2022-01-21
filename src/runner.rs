@@ -1,6 +1,7 @@
 // 走者 - Vec<Node>を順に実行
 use crate::{tokenizer, parser};
 use crate::node::*;
+use crate::context::*;
 use crate::sys_function_debug;
 use crate::sys_function;
 
@@ -12,12 +13,13 @@ pub fn indent_str(num: usize) -> String {
     s
 }
 
-pub fn run_nodes(ctx: &mut NodeContext, nodes: &Vec<Node>) -> NodeValue {
+pub fn run_nodes(ctx: &mut NodeContext, nodes: &Vec<Node>) -> Result<NodeValue, String> {
     ctx.callstack_level += 1;
     let nodes_len = nodes.len();
     let mut result = NodeValue::Empty;
     let mut index = 0;
     while index < nodes_len {
+        if ctx.has_error() { return Err(ctx.get_error_str()); }
         let cur:&Node = &nodes[index];
         println!("[RUN]({:02}) {}{}", ctx.index, indent_str(ctx.callstack_level-1), cur.to_string());
         match cur.kind {
@@ -37,7 +39,7 @@ pub fn run_nodes(ctx: &mut NodeContext, nodes: &Vec<Node>) -> NodeValue {
         index += 1;
     }
     ctx.callstack_level -= 1;
-    result
+    Ok(result)
 }
 
 fn run_call_sysfunc(ctx: &mut NodeContext, node: &Node) -> NodeValue {
@@ -45,7 +47,10 @@ fn run_call_sysfunc(ctx: &mut NodeContext, node: &Node) -> NodeValue {
     let func_no = match &node.value {
         NodeValue::SysFunc(no, nodes) => {
             for n in nodes.iter() {
-                let v = run_nodes(ctx, &vec![n.clone()]);
+                let v = match run_nodes(ctx, &vec![n.clone()]) {
+                    Ok(v) => v,
+                    Err(e) => return NodeValue::Empty,
+                };
                 args.push(v);
             }
             *no
@@ -62,7 +67,10 @@ fn run_let(ctx: &mut NodeContext, node: &Node) -> NodeValue {
         _ => return NodeValue::Empty,
     };
     let value_node:&Vec<Node> = &let_value.value_node;
-    let value = run_nodes(ctx, value_node);
+    let value = match run_nodes(ctx, value_node) {
+        Ok(v) => v,
+        Err(_) => NodeValue::Empty,
+    };
     let info: &NodeVarInfo = &let_value.var_info;
     ctx.scopes[info.level].var_values[info.no] = value.clone();
     value
@@ -84,8 +92,8 @@ fn run_operator(ctx: &mut NodeContext, node: &Node) -> NodeValue {
         NodeValue::Operator(op) => op,
         _ => return NodeValue::Empty,
     };
-    let right = run_nodes(ctx, &vec![op.nodes[1].clone()]);
-    let left = run_nodes(ctx, &vec![op.nodes[0].clone()]);
+    let right = run_nodes(ctx, &vec![op.nodes[1].clone()]).unwrap_or(NodeValue::Empty);
+    let left = run_nodes(ctx, &vec![op.nodes[0].clone()]).unwrap_or(NodeValue::Empty);
     match op.flag {
         '(' => left,
         '+' => NodeValue::calc_plus(&left, &right),
@@ -113,6 +121,7 @@ impl RunOption {
         Self { use_sysfunc: false, debug: true }
     }
 }
+
 pub fn eval(code: &str, options: RunOption) -> Result<NodeValue,String> {
     // 意味解析器を初期化
     let mut p = parser::Parser::new();
@@ -128,9 +137,9 @@ pub fn eval(code: &str, options: RunOption) -> Result<NodeValue,String> {
         Ok(nodes) => nodes,
         Err(e) => { return Err(e); }
     };
-    let result = run_nodes(&mut p.context, &nodes);
-    Ok(result)
+    run_nodes(&mut p.context, &nodes)
 }
+
 pub fn eval_str(code: &str) -> String {
     match eval(code, RunOption::normal()) {
         Ok(v) => v.to_string(),
@@ -149,8 +158,8 @@ mod test_runner {
     }
     #[test]
     fn test_print() {
-        let res = eval("123と表示", RunOption::normal());
-        assert_eq!(res, Ok(NodeValue::I(123)));
+        let res = eval_str("123と表示");
+        assert_eq!(res, String::from("123"));
         let res = eval_str("「穏やかな心は体に良い」と表示");
         assert_eq!(res, String::from("穏やかな心は体に良い"));
     }
@@ -158,7 +167,7 @@ mod test_runner {
     #[test]
     fn test_debug_print() {
         let res = eval("123と表示", RunOption::simple());
-        assert_eq!(res, Ok(NodeValue:I(123)));
+        assert_eq!(res.unwrap_or(NodeValue::Empty).to_int(0), 123);
     }
     #[test]
     fn test_calc() {

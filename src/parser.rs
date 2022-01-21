@@ -1,5 +1,6 @@
 use crate::token::*;
 use crate::node::*;
+use crate::context::*;
 use crate::tokencur::TokenCur;
 use crate::operator;
 use crate::josi_list;
@@ -10,8 +11,6 @@ pub struct Parser {
     cur: TokenCur,
     fileno: u32,
     stack: Vec<Node>,
-    errors: Vec<NodeError>,
-    error_count: usize,
 }
 impl Parser {
     pub fn new() -> Self {
@@ -21,26 +20,17 @@ impl Parser {
             nodes: vec![],
             stack: vec![],
             context: NodeContext::new(),
-            errors: vec![],
-            error_count: 0,
         }
     }
     // for error
     pub fn has_error(&self) -> bool {
-        self.error_count > 0
+        self.context.has_error()
     }
     pub fn get_error_str(&self) -> String {
-        let mut res = String::new();
-        for e in self.errors.iter() {
-            res.push_str(&format!("{}\n", e.to_string()));
-        }
-        res
+        self.context.get_error_str()
     }
     pub fn throw_error(&mut self, msg: String, line: u32) {
-        let err = NodeError::new(msg, line, self.fileno);
-        println!("[ERROR] {}", &err.to_string());
-        self.errors.push(err);
-        self.error_count += 1;
+        self.context.throw_error(NodeErrorKind::ParserError, NodeErrorLevel::Error, msg, line, self.fileno);
     }
     pub fn throw_error_token(&mut self, msg: &str, t: Token) {
         let message = format!("『{}』の近くで、{}。", t.label, msg);
@@ -429,8 +419,8 @@ mod test_parser {
     fn test_parser_comment() {
         let t = tokenize("/*cmt*/");
         let mut p = Parser::new();
-        assert_eq!(p.parse(t, "hoge.nako3"), true);
-        let node = &p.nodes[0];
+        let nodes = p.parse(t, "hoge.nako3").unwrap();
+        let node = &nodes[0];
         assert_eq!(node.kind, NodeKind::Comment);
         assert_eq!(node.value.to_string(), String::from("cmt"));
     }
@@ -439,8 +429,8 @@ mod test_parser {
     fn test_parser_let() {
         let t = tokenize("aaa = 30");
         let mut p = Parser::new();
-        assert_eq!(p.parse(t, "hoge.nako3"), true);
-        let node = &p.nodes[0];
+        let nodes = p.parse(t, "hoge.nako3").unwrap(); 
+        let node = &nodes[0];
         assert_eq!(node.kind, NodeKind::Let);
         let let_value = match &node.value {
             NodeValue::LetVar(v) => {

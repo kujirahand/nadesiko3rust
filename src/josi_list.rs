@@ -77,7 +77,7 @@ mod test_josi {
     #[test]
     fn is_josi_mosi_test() {
         let s = String::from("でなければ");
-        assert_eq!(is_josi_mosi(&s), true);
+        assert_eq!(is_josi_mosi(&s), Some(false));
     }
     
     #[test]

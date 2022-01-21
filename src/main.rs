@@ -8,6 +8,7 @@ mod parser;
 mod reserved_words;
 mod tokencur;
 mod node;
+mod context;
 mod runner;
 mod operator;
 mod sys_function;
@@ -33,8 +34,10 @@ fn main() {
     };
     println!("{}", node::nodes_to_string(&nodes, "\n"));
     println!("--- run ---");
-    let v = runner::run_nodes(&mut parser.context, &nodes);
-    println!("{:?} || {}", v, v.to_string());
+    match runner::run_nodes(&mut parser.context, &nodes) {
+        Ok(v) => println!("{:?}", v),
+        Err(e) => println!("!!{}", e),
+    }
     
     // ---------------
     println!("=== easy method ===");
