@@ -42,7 +42,9 @@ impl TokenCur {
     pub fn eq_operator(&self) -> bool {
         let k = self.peek_kind();
         match k {
-            TokenKind::Plus | TokenKind::Minus | TokenKind::Mul | TokenKind::Div | TokenKind::Mod => true,
+            TokenKind::Plus | TokenKind::Minus | TokenKind::Mul | TokenKind::Div | TokenKind::Mod |
+            TokenKind::Eq | TokenKind::Not | TokenKind::Gt | TokenKind::GtEq |
+            TokenKind::Lt | TokenKind::LtEq => true,
             _ => false,
         }
     }
@@ -50,7 +52,7 @@ impl TokenCur {
     pub fn eq_operator_str(&self) -> bool {
         let k = self.peek_kind();
         match k {
-            TokenKind::And | TokenKind::Mul => true,
+            TokenKind::PlusStr | TokenKind::Mul => true,
             _ => false,
         }
     }

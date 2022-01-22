@@ -85,13 +85,8 @@ impl StrCur {
         result.iter().collect()
     }
     pub fn get_str(&mut self, length: usize) -> String {
-        let mut result: Vec<char> = vec![];
-        let mut remain = length;
-        while self.can_read() {
-            if remain == 0 { break; }
-            result.push(self.next());
-            remain -= 1;
-        }
+        let result = self.peek_chars(length);
+        self.seek(result.len() as i32);
         result.iter().collect()
     }
     pub fn get_range(&mut self, min:char, max:char) -> Vec<char> {

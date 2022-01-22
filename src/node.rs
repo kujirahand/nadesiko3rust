@@ -5,7 +5,9 @@ use std::collections::HashMap;
 pub enum NodeKind {
     Nop,
     Comment,
+    NodeList,
     Int,
+    Bool,
     Number,
     String,
     StringEx,
@@ -13,6 +15,7 @@ pub enum NodeKind {
     Let,
     Operator,
     CallSysFunc,
+    If,
 }
 
 #[derive(Debug, Clone)]
@@ -36,14 +39,14 @@ impl Node {
     pub fn new_nop() -> Self {
         Node::new(NodeKind::Nop, NodeValue::Empty, None, 0, 0)
     }
-    pub fn new_operator(operator: char, node_l: Node, node_r: Node, line: u32, fileno: u32) -> Self {
+    pub fn new_operator(operator: char, node_l: Node, node_r: Node, josi: Option<String>, line: u32, fileno: u32) -> Self {
         Node::new(
             NodeKind::Operator, 
             NodeValue::Operator(NodeValueOperator {
                 flag: operator,
                 nodes: vec![node_l, node_r]
             }),
-            None, line, fileno
+            josi, line, fileno
         )
     }
     pub fn get_josi_str(&self) -> String {
@@ -54,16 +57,24 @@ impl Node {
     }
     pub fn to_string(&self) -> String {
         match self.kind {
+            NodeKind::NodeList => format!("NodeList:{}", self.value.to_string()),
             NodeKind::Int => format!("Int:{}", self.value.to_string()),
+            NodeKind::Bool => format!("Bool:{}", self.value.to_string()),
             NodeKind::Comment => format!("Comment:{}", self.value.to_string()),
             NodeKind::Let => format!("Let:{}", self.value.to_string()),
             NodeKind::GetVar => format!("GetVar:{}", self.value.to_string()),
             NodeKind::Operator => format!("Operator:{}", self.value.to_string()),
+            NodeKind::String => format!("String:{}", self.value.to_string()),
             NodeKind::CallSysFunc => format!("CallSysFunc:{}", self.value.to_string()),
+            NodeKind::If => format!("If:{}", self.value.to_string()),
             _ => format!("{:?}", self.kind),
         }
     }
 }
+
+// I to B => (i != FALSE_VALUE)
+const FALSE_VALUE:isize = 0;
+const TRUE_VALUE:isize = 1;
 
 #[derive(Debug,Clone)]
 pub enum NodeValue {
@@ -71,7 +82,8 @@ pub enum NodeValue {
     S(String),
     I(isize),
     F(f64),
-    Nodes(Vec<Node>),
+    B(bool),
+    NodeList(Vec<Node>),
     LetVar(NodeValueLet),
     GetVar(NodeVarInfo),
     Operator(NodeValueOperator),
@@ -84,12 +96,22 @@ impl NodeValue {
             NodeValue::S(v) => format!("{}", v),
             NodeValue::I(v) => format!("{}", v),
             NodeValue::F(v) => format!("{}", v),
-            NodeValue::LetVar(v) => format!("{}={:?}", v.var_name, v.value_node),
-            NodeValue::Nodes(nodes) => format!("Nodes:[{}]", nodes_to_string(&nodes, ",")),
+            NodeValue::B(v) => format!("{}", v),
+            NodeValue::LetVar(v) => format!("LetVar{}={:?}", v.var_name, v.value_node),
+            NodeValue::NodeList(nodes) => format!("NodeList:[{}]", nodes_to_string(&nodes, ",")),
             NodeValue::Operator(op) => format!("Operator:{}[{}]", op.flag, nodes_to_string(&op.nodes, ",")),
             NodeValue::GetVar(var) => format!("GetVar:{:?}", var),
             NodeValue::SysFunc(no, nodes) => format!("SysFunc:{}:[{}]", no, nodes_to_string(&nodes, ",")),
             // _ => String::from(""),
+        }
+    }
+    pub fn to_bool(&self) -> bool {
+        match self {
+            NodeValue::B(v) => *v,
+            _ => {
+                let v = self.to_int(0);
+                v != FALSE_VALUE
+            }
         }
     }
     pub fn to_int(&self, def_value: isize) -> isize {
@@ -99,6 +121,7 @@ impl NodeValue {
             NodeValue::I(v) => *v,
             NodeValue::F(v) => *v as isize,
             NodeValue::SysFunc(v, _) => *v as isize,
+            NodeValue::B(v) => if *v { TRUE_VALUE } else { FALSE_VALUE },
             _ => def_value,
         }
     }
@@ -108,7 +131,14 @@ impl NodeValue {
             NodeValue::S(v) => v.parse().unwrap_or(def_value),
             NodeValue::I(v) => *v as f64,
             NodeValue::F(v) => *v as f64,
+            NodeValue::B(v) => if *v { TRUE_VALUE as f64 } else { FALSE_VALUE as f64 }
             _ => def_value,
+        }
+    }
+    pub fn to_nodes(&self) -> Vec<Node> {
+        match self {
+            NodeValue::NodeList(nodes) => return nodes.clone(),
+            _ => vec![],
         }
     }
 }
@@ -173,6 +203,30 @@ impl NodeValue {
             (NodeValue::S(_), _) => NodeValue::F(left.to_float(0.0) / right.to_float(0.0)),
             (_, _) => NodeValue::Empty,
         }
+    }
+    pub fn calc_eq(left: &NodeValue, right: &NodeValue) -> NodeValue {
+        NodeValue::B(left.to_int(0) == right.to_int(0))
+    }
+    pub fn calc_noteq(left: &NodeValue, right: &NodeValue) -> NodeValue {
+        NodeValue::B(left.to_int(0) != right.to_int(0))
+    }
+    pub fn calc_gt(left: &NodeValue, right: &NodeValue) -> NodeValue {
+        NodeValue::B(left.to_float(0.0) > right.to_float(0.0))
+    }
+    pub fn calc_gteq(left: &NodeValue, right: &NodeValue) -> NodeValue {
+        NodeValue::B(left.to_float(0.0) >= right.to_float(0.0))
+    }
+    pub fn calc_lt(left: &NodeValue, right: &NodeValue) -> NodeValue {
+        NodeValue::B(left.to_float(0.0) < right.to_float(0.0))
+    }
+    pub fn calc_lteq(left: &NodeValue, right: &NodeValue) -> NodeValue {
+        NodeValue::B(left.to_float(0.0) <= right.to_float(0.0))
+    }
+    pub fn calc_and(left: &NodeValue, right: &NodeValue) -> NodeValue {
+        NodeValue::B(left.to_bool() && right.to_bool())
+    }
+    pub fn calc_or(left: &NodeValue, right: &NodeValue) -> NodeValue {
+        NodeValue::B(left.to_bool() || right.to_bool())
     }
 }
 

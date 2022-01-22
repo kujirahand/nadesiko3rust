@@ -21,17 +21,40 @@ pub fn run_nodes(ctx: &mut NodeContext, nodes: &Vec<Node>) -> Result<NodeValue, 
     while index < nodes_len {
         if ctx.has_error() { return Err(ctx.get_error_str()); }
         let cur:&Node = &nodes[index];
-        println!("[RUN]({:02}) {}{}", ctx.index, indent_str(ctx.callstack_level-1), cur.to_string());
+        println!("[RUN]({:02}) {}{}", index, indent_str(ctx.callstack_level-1), cur.to_string());
         match cur.kind {
             NodeKind::Comment => {},
             NodeKind::Let => result = run_let(ctx, cur),
             NodeKind::Int => result = cur.value.clone(),
+            NodeKind::Bool => result = cur.value.clone(),
             NodeKind::Number => result = cur.value.clone(),
             NodeKind::String => result = cur.value.clone(),
             NodeKind::StringEx => result = cur.value.clone(), // TODO: 変数の展開
             NodeKind::GetVar => result = run_get_var(ctx, cur),
             NodeKind::Operator => result = run_operator(ctx, cur),
             NodeKind::CallSysFunc => result = run_call_sysfunc(ctx, cur),
+            NodeKind::NodeList => {
+                result = match run_nodes(ctx, &cur.value.to_nodes()) {
+                    Ok(value) => value,
+                    Err(_) => return Err(ctx.get_error_str()),
+                };
+            },
+            NodeKind::If => {
+                let nodes = cur.value.to_nodes();
+                let cond: Node = (&nodes[0]).clone();
+                let true_node: Node = (&nodes[1]).clone();
+                let false_node: Node = (&nodes[2]).clone();
+                match run_nodes(ctx, &vec![cond]) {
+                    Err(_) => return Err(ctx.get_error_str()),
+                    Ok(v) => {
+                        if v.to_bool() {
+                            result = run_nodes(ctx, &vec![true_node]).unwrap_or(NodeValue::Empty);
+                        } else {
+                            result = run_nodes(ctx, &vec![false_node]).unwrap_or(NodeValue::Empty);
+                        }
+                    }
+                }
+            }
             _ => {
                 println!("[エラー] runner未実装のノード :{:?}", cur);
             }
@@ -49,7 +72,7 @@ fn run_call_sysfunc(ctx: &mut NodeContext, node: &Node) -> NodeValue {
             for n in nodes.iter() {
                 let v = match run_nodes(ctx, &vec![n.clone()]) {
                     Ok(v) => v,
-                    Err(e) => return NodeValue::Empty,
+                    Err(_) => return NodeValue::Empty,
                 };
                 args.push(v);
             }
@@ -96,11 +119,21 @@ fn run_operator(ctx: &mut NodeContext, node: &Node) -> NodeValue {
     let left = run_nodes(ctx, &vec![op.nodes[0].clone()]).unwrap_or(NodeValue::Empty);
     match op.flag {
         '(' => left,
+        '!' => NodeValue::B(!left.to_bool()),
         '+' => NodeValue::calc_plus(&left, &right),
+        '&' => NodeValue::calc_plus(&left, &right), // 文字列加算
+        '|' => NodeValue::calc_or(&left, &right), // または
+        '且' => NodeValue::calc_and(&left, &right), // かつ
         '-' => NodeValue::calc_minus(&left, &right),
         '*' => NodeValue::calc_mul(&left, &right),
         '/' => NodeValue::calc_div(&left, &right),
         '%' => NodeValue::calc_mod(&left, &right),
+        '=' => NodeValue::calc_eq(&left, &right),
+        '≠' => NodeValue::calc_noteq(&left, &right),
+        '>' => NodeValue::calc_gt(&left, &right),
+        '≧' => NodeValue::calc_gteq(&left, &right),
+        '<' => NodeValue::calc_lt(&left, &right),
+        '≦' => NodeValue::calc_lteq(&left, &right),
         _ => NodeValue::Empty,
     }
 }
@@ -142,6 +175,12 @@ pub fn eval(code: &str, options: RunOption) -> Result<NodeValue,String> {
 
 pub fn eval_str(code: &str) -> String {
     match eval(code, RunOption::normal()) {
+        Ok(v) => v.to_string(),
+        Err(e) => format!("!!{}", e),
+    }
+}
+pub fn eval_simple_str(code: &str) -> String {
+    match eval(code, RunOption::simple()) {
         Ok(v) => v.to_string(),
         Err(e) => format!("!!{}", e),
     }

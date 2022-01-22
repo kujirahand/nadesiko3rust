@@ -3,7 +3,6 @@ use std::collections::HashMap;
 
 #[derive(Clone)]
 pub struct NodeContext {
-    pub index: usize,
     pub callstack_level: usize,
     pub labels: HashMap<String, Node>,
     pub scopes: Vec<NodeScope>,
@@ -20,7 +19,6 @@ impl NodeContext {
         let user_global = NodeScope::new();
         let scopes = vec![sys_scope, user_global];
         NodeContext {
-            index: 0,
             callstack_level: 0,
             labels: HashMap::new(),
             scopes,

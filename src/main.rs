@@ -18,7 +18,8 @@ mod sys_function_debug;
 fn main() {
     // let src = "a = 30; b=40; aをデバッグ表示;";
     // let src = "(2に3を足す)を表示;";
-    let src = "「hoge」を表示";
+    // let src = "「hoge」を表示";
+    let src = "もし、3=3ならば「OK」と表示。違えば「NG」と表示。";
     
     // prepare
     let mut parser = parser::Parser::new();
@@ -26,7 +27,7 @@ fn main() {
     // tokenizer
     println!("--- tokenize ---");
     let tokens = tokenizer::tokenize(src);
-    println!("{:?}", tokens);
+    println!("{}", token::tokens_string(&tokens));
     println!("--- parse ---");
     let nodes = match parser.parse(tokens, "a.nako3") {
         Ok(nodes) => nodes,
@@ -42,5 +43,6 @@ fn main() {
     // ---------------
     println!("=== easy method ===");
     runner::eval_str("「気前よく与えてより豊かになる人がいる。」と表示。");
+    runner::eval_simple_str("「なでしこ」と表示。");
 }
 

@@ -8,6 +8,9 @@ pub fn check_kind(s: &str) -> TokenKind {
     if s == "もし" { return TokenKind::If }
     if s == "回" { return TokenKind::Repeat }
     if s == "ここまで" { return TokenKind::BlockEnd }
+    if s == "ここから" { return TokenKind::BlockBegin }
+    if s == "かつ" { return TokenKind::And }
+    if s == "または" { return TokenKind::Or }
     // todo
     TokenKind::Word
 }
