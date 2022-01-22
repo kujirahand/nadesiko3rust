@@ -13,6 +13,7 @@ pub fn get_priority(c: char) -> i8 {
         '%' => 4,
         // plus, minus
         '+' => 3,
+        '結' => 3, // 文字列の加算
         '-' => 3,
         // comp
         '>' => 2,

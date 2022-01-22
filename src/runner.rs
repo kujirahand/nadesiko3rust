@@ -121,9 +121,9 @@ fn run_operator(ctx: &mut NodeContext, node: &Node) -> NodeValue {
         '(' => left,
         '!' => NodeValue::B(!left.to_bool()),
         '+' => NodeValue::calc_plus(&left, &right),
-        '&' => NodeValue::calc_plus(&left, &right), // 文字列加算
+        '結' => NodeValue::calc_plus_str(&left, &right), // 文字列加算
         '|' => NodeValue::calc_or(&left, &right), // または
-        '且' => NodeValue::calc_and(&left, &right), // かつ
+        '&' => NodeValue::calc_and(&left, &right), // かつ
         '-' => NodeValue::calc_minus(&left, &right),
         '*' => NodeValue::calc_mul(&left, &right),
         '/' => NodeValue::calc_div(&left, &right),
@@ -134,7 +134,11 @@ fn run_operator(ctx: &mut NodeContext, node: &Node) -> NodeValue {
         '≧' => NodeValue::calc_gteq(&left, &right),
         '<' => NodeValue::calc_lt(&left, &right),
         '≦' => NodeValue::calc_lteq(&left, &right),
-        _ => NodeValue::Empty,
+        '^' => NodeValue::calc_pow(&left, &right),
+        _ => {
+            println!("[実行時エラー]未実装の演算子記号:『{}』", op.flag);
+            NodeValue::Empty
+        },
     }
 }
 
@@ -217,4 +221,36 @@ mod test_runner {
         let res = eval_str("(1+2)*3と表示");
         assert_eq!(res, String::from("9"));
     }
+    #[test]
+    fn test_calc_check_operator() {
+        let res = eval_str("1+2と表示");
+        assert_eq!(res, String::from("3"));
+        let res = eval_str("3*2と表示");
+        assert_eq!(res, String::from("6"));
+        let res = eval_str("3×2と表示");
+        assert_eq!(res, String::from("6"));
+        let res = eval_str("1÷2と表示");
+        assert_eq!(res, String::from("0.5"));
+        let res = eval_str("1/2と表示");
+        assert_eq!(res, String::from("0.5"));
+        let res = eval_str("2^3と表示");
+        assert_eq!(res, String::from("8"));
+        let res = eval_str("10%3と表示");
+        assert_eq!(res, String::from("1"));
+        let res = eval_str("10>3と表示");
+        assert_eq!(res, String::from("真"));
+        let res = eval_str("10<3と表示");
+        assert_eq!(res, String::from("偽"));
+        let res = eval_str("5>=5と表示");
+        assert_eq!(res, String::from("真"));
+        let res = eval_str("5<5と表示");
+        assert_eq!(res, String::from("偽"));
+        let res = eval_str("5<=5と表示");
+        assert_eq!(res, String::from("真"));
+        let res = eval_str("真&&真と表示");
+        assert_eq!(res, String::from("真"));
+        let res = eval_str("真||偽と表示");
+        assert_eq!(res, String::from("真"));
+    }
+
 }

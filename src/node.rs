@@ -96,7 +96,7 @@ impl NodeValue {
             NodeValue::S(v) => format!("{}", v),
             NodeValue::I(v) => format!("{}", v),
             NodeValue::F(v) => format!("{}", v),
-            NodeValue::B(v) => format!("{}", v),
+            NodeValue::B(v) => if *v { String::from("真") } else { String::from("偽") },
             NodeValue::LetVar(v) => format!("LetVar{}={:?}", v.var_name, v.value_node),
             NodeValue::NodeList(nodes) => format!("NodeList:[{}]", nodes_to_string(&nodes, ",")),
             NodeValue::Operator(op) => format!("Operator:{}[{}]", op.flag, nodes_to_string(&op.nodes, ",")),
@@ -160,6 +160,10 @@ impl NodeValue {
             // other
             _ => NodeValue::Empty,
         }
+    }
+    pub fn calc_plus_str(left: &NodeValue, right: &NodeValue) -> NodeValue {
+        let s = format!("{}{}", left.to_string(), right.to_string());
+        NodeValue::S(s)
     }
     pub fn calc_minus(left: &NodeValue, right: &NodeValue) -> NodeValue {
         match right {
@@ -227,6 +231,14 @@ impl NodeValue {
     }
     pub fn calc_or(left: &NodeValue, right: &NodeValue) -> NodeValue {
         NodeValue::B(left.to_bool() || right.to_bool())
+    }
+    pub fn calc_pow(left: &NodeValue, right: &NodeValue) -> NodeValue {
+        match (left, right) {
+            (NodeValue::I(l),NodeValue::I(r)) => NodeValue::I((*l).pow(*r as u32)),
+            (NodeValue::F(l),NodeValue::I(r)) => NodeValue::F((*l).powi(*r as i32)),
+            (NodeValue::F(l),NodeValue::F(r)) => NodeValue::F((*l).powf(*r)),
+            (_, _) => NodeValue::Empty,
+        }
     }
 }
 

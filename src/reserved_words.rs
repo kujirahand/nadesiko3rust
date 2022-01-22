@@ -11,6 +11,7 @@ pub fn check_kind(s: &str) -> TokenKind {
     if s == "ここから" { return TokenKind::BlockBegin }
     if s == "かつ" { return TokenKind::And }
     if s == "または" { return TokenKind::Or }
+    if s == "違" { return TokenKind::Else }
     // todo
     TokenKind::Word
 }
