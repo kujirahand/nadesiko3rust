@@ -45,9 +45,13 @@ pub fn tokenize(src: &str) -> Vec<Token> {
             '≧' => { flag_push(TokenKind::GtEq, &mut result, &mut cur, line); continue; },
             '≦' => { flag_push(TokenKind::LtEq, &mut result, &mut cur, line); continue; },
             '≠' => { flag_push(TokenKind::NotEq, &mut result, &mut cur, line); continue; },
-            '真' => { flag_push(TokenKind::True, &mut result, &mut cur, line); continue; },
-            '偽' => { flag_push(TokenKind::False, &mut result, &mut cur, line); continue; },
-            '=' => { flag_push_josi(TokenKind::Eq, &mut result, &mut cur, line); continue; },
+            '真' => { flag_push_josi(TokenKind::True, &mut result, &mut cur, line); continue; },
+            '偽' => { flag_push_josi(TokenKind::False, &mut result, &mut cur, line); continue; },
+            '=' => {
+                if cur.eq_str("==") { flag_push_n(TokenKind::Eq, '=', &mut result, &mut cur, 2, line); }
+                else { flag_push_n(TokenKind::Eq, '=', &mut result, &mut cur, 1, line); }
+                continue; 
+            },
             '&' => { 
                 if cur.eq_str("&&") { flag_push_n(TokenKind::And, '&', &mut result, &mut cur, 2, line); }
                 else { flag_push_n(TokenKind::PlusStr, '結', &mut result, &mut cur, 1, line); }
