@@ -20,7 +20,7 @@ fn main() {
     // let src = "(2に3を足す)を表示;";
     // let src = "「hoge」を表示";
     //let src = "もし、3=3ならば「OK」と表示。違えば「NG」と表示。";
-    let src = "真&&真と表示";
+    let src = "3回「ワン」と表示";
     // prepare
     let mut parser = parser::Parser::new();
     sys_function::register(&mut parser.context);

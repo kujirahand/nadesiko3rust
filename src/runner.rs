@@ -5,13 +5,63 @@ use crate::context::*;
 use crate::sys_function_debug;
 use crate::sys_function;
 
-pub fn indent_str(num: usize) -> String {
-    let mut s = String::new();
-    for _ in 0..num {
-        s.push_str("    ");
+pub fn run_node(ctx: &mut NodeContext, cur: &Node) -> Option<NodeValue> {
+    let mut result = NodeValue::Empty;
+    match cur.kind {
+        NodeKind::Comment => {},
+        NodeKind::Let => result = run_let(ctx, cur),
+        NodeKind::Int => result = cur.value.clone(),
+        NodeKind::Bool => result = cur.value.clone(),
+        NodeKind::Number => result = cur.value.clone(),
+        NodeKind::String => result = cur.value.clone(),
+        NodeKind::StringEx => result = cur.value.clone(), // TODO: 変数の展開
+        NodeKind::GetVar => result = run_get_var(ctx, cur).unwrap_or(NodeValue::Empty),
+        NodeKind::Operator => result = run_operator(ctx, cur),
+        NodeKind::CallSysFunc => result = run_call_sysfunc(ctx, cur),
+        NodeKind::NodeList => {
+            result = match run_nodes(ctx, &cur.value.to_nodes()) {
+                Ok(value) => value,
+                Err(_) => return None,
+            };
+        },
+        NodeKind::If => match run_if(ctx, cur) { Some(v) => result = v, None => {}},
+        NodeKind::Kai => match run_kai(ctx, cur) { Some(v) => result = v, None => {}},
+        _ => {
+            println!("[エラー] runner未実装のノード :{:?}", cur);
+        }
     }
-    s
+    Some(result)
 }
+pub fn run_kai(ctx: &mut NodeContext, cur: &Node) -> Option<NodeValue> {
+    let nodes = cur.value.to_nodes();
+    let kaisu_node = &nodes[0];
+    let body_node = &nodes[1];
+    let kaisu = run_node(ctx, kaisu_node).unwrap_or(NodeValue::I(0));
+    let mut result = None;
+    for i in 0..kaisu.to_int(0) {
+        ctx.scopes.set_value(1, "回数", NodeValue::I(i));
+        result = run_node(ctx, body_node);
+    }
+    result
+}
+
+pub fn run_if(ctx: &mut NodeContext, cur: &Node) -> Option<NodeValue> {
+    let nodes = cur.value.to_nodes();
+    let cond: &Node = &nodes[0];
+    let true_node: &Node = &nodes[1];
+    let false_node: &Node = &nodes[2];
+    match run_node(ctx, cond) {
+        None => return None,
+        Some(cond_v) => {
+            if cond_v.to_bool() {
+                return run_node(ctx, true_node);
+            } else {
+                return run_node(ctx, false_node);
+            }
+        }
+    }
+}
+
 
 pub fn run_nodes(ctx: &mut NodeContext, nodes: &Vec<Node>) -> Result<NodeValue, String> {
     ctx.callstack_level += 1;
@@ -22,43 +72,7 @@ pub fn run_nodes(ctx: &mut NodeContext, nodes: &Vec<Node>) -> Result<NodeValue, 
         if ctx.has_error() { return Err(ctx.get_error_str()); }
         let cur:&Node = &nodes[index];
         println!("[RUN]({:02}) {}{}", index, indent_str(ctx.callstack_level-1), cur.to_string());
-        match cur.kind {
-            NodeKind::Comment => {},
-            NodeKind::Let => result = run_let(ctx, cur),
-            NodeKind::Int => result = cur.value.clone(),
-            NodeKind::Bool => result = cur.value.clone(),
-            NodeKind::Number => result = cur.value.clone(),
-            NodeKind::String => result = cur.value.clone(),
-            NodeKind::StringEx => result = cur.value.clone(), // TODO: 変数の展開
-            NodeKind::GetVar => result = run_get_var(ctx, cur),
-            NodeKind::Operator => result = run_operator(ctx, cur),
-            NodeKind::CallSysFunc => result = run_call_sysfunc(ctx, cur),
-            NodeKind::NodeList => {
-                result = match run_nodes(ctx, &cur.value.to_nodes()) {
-                    Ok(value) => value,
-                    Err(_) => return Err(ctx.get_error_str()),
-                };
-            },
-            NodeKind::If => {
-                let nodes = cur.value.to_nodes();
-                let cond: Node = (&nodes[0]).clone();
-                let true_node: Node = (&nodes[1]).clone();
-                let false_node: Node = (&nodes[2]).clone();
-                match run_nodes(ctx, &vec![cond]) {
-                    Err(_) => return Err(ctx.get_error_str()),
-                    Ok(v) => {
-                        if v.to_bool() {
-                            result = run_nodes(ctx, &vec![true_node]).unwrap_or(NodeValue::Empty);
-                        } else {
-                            result = run_nodes(ctx, &vec![false_node]).unwrap_or(NodeValue::Empty);
-                        }
-                    }
-                }
-            }
-            _ => {
-                println!("[エラー] runner未実装のノード :{:?}", cur);
-            }
-        }
+        if let Some(v) = run_node(ctx, cur) { result = v; }
         index += 1;
     }
     ctx.callstack_level -= 1;
@@ -90,24 +104,17 @@ fn run_let(ctx: &mut NodeContext, node: &Node) -> NodeValue {
         _ => return NodeValue::Empty,
     };
     let value_node:&Vec<Node> = &let_value.value_node;
-    let value = match run_nodes(ctx, value_node) {
-        Ok(v) => v,
-        Err(_) => NodeValue::Empty,
-    };
-    let info: &NodeVarInfo = &let_value.var_info;
-    ctx.scopes[info.level].var_values[info.no] = value.clone();
+    let value = run_nodes(ctx, value_node).unwrap_or(NodeValue::Empty);
+    ctx.scopes.set_value(1, &let_value.var_name, value.clone());
     value
 }
 
-fn run_get_var(ctx: &mut NodeContext, node: &Node) -> NodeValue {
+fn run_get_var(ctx: &mut NodeContext, node: &Node) -> Option<NodeValue> {
     let var_info: &NodeVarInfo = match &node.value {
         NodeValue::GetVar(ref var_info) => var_info,
-        _ => return NodeValue::Empty,
+        _ => return None,
     };
-    match ctx.get_var_value(var_info) {
-        Some(v) => v,
-        None => NodeValue::Empty
-    }
+    ctx.get_var_value(var_info)
 }
 
 fn run_operator(ctx: &mut NodeContext, node: &Node) -> NodeValue {
@@ -188,6 +195,14 @@ pub fn eval_simple_str(code: &str) -> String {
         Ok(v) => v.to_string(),
         Err(e) => format!("!!{}", e),
     }
+}
+
+pub fn indent_str(num: usize) -> String {
+    let mut s = String::new();
+    for _ in 0..num {
+        s.push_str("    ");
+    }
+    s
 }
 
 #[cfg(test)]

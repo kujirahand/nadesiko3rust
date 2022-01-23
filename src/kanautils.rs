@@ -30,12 +30,43 @@ pub fn is_numeric(c: char) -> bool {
 pub fn is_hiragana(c: char) -> bool {
     // 3041-309F
     ('ぁ'..='ゟ').contains(&c)
+    // 正確に言えば...
+    // 'ぁ'..='ゔ', 'ゕ'..='ゖ', 'ゝ'..='ゞ', 'ゟ'..='ゟ',
 }
 
 pub fn is_word_chars(c: char) -> bool {
-    if in_range![c => 'a'..='z', 'A'..='Z', '_'..='_', '0'..='9'] { return true; }
-    if (c as u32) >= 0xE0 { return true; }
-    return false;
+    let cu: u32 = c as u32;
+    // ASCII領域
+    if cu <= 0xFF {
+        if in_range![
+            c => '0'..='9', 'a'..='z', 'A'..='Z', '_'..='_'
+        ] { return true; }
+        return false;
+    }
+    // 非ASCII領域
+    // @see https://www.asahi-net.or.jp/~ax2s-KMTN/ref/unicode/index_u.html
+    /*
+    // 日本語で使う仮名領域
+    (0x3040 as char) ..= (0x309F as char), // ひらがな
+    (0x30A0 as char) ..= (0x30FF as char), // カタカナ
+    (0x1B000 as char) ..= (0x1B16F as char), // かな補助領域
+    (0xFF00 as char) ..= (0xFFEF as char), // 半角カナ
+    (0x3190 as char) ..= (0x319F as char), // 漢文用記号
+    // 漢字領域
+    (0x2F00 as char) ..= (0x31EF as char), // 部首字画など
+    (0x3400 as char) ..= (0x9FFC as char), // CJK統合漢字+A
+    (0xF900 as char) ..= (0xFAFF as char), // CJK互換漢字
+    (0x20000 as char) ..= (0x3134A as char), // CJK統合漢字B-G
+    (0xE0100 as char) ..= (0xE01EF as char), // 異体字セレクタ
+    */
+    // 基本OKだが全角記号などは変数名に使えない
+    if in_range![
+        cu => 
+        0x2190..=0x21FF, // 矢印領域
+        0x25A0..=0x25FF, // 幾何学模様(●や▲)
+        0x3000..=0x303F  // CJKの記号と句読点(「」や【】や『』) @see https://www.asahi-net.or.jp/~ax2s-KMTN/ref/unicode/u3000.html
+    ] { return false; }
+    return true;
 }
 
 pub fn char_from_u32(i: u32, def: char) -> char {

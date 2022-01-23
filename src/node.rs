@@ -12,10 +12,11 @@ pub enum NodeKind {
     String,
     StringEx,
     GetVar,
-    Let,
+    Let, // グローバル変数への代入
     Operator,
     CallSysFunc,
     If,
+    Kai,
 }
 
 #[derive(Debug, Clone)]
@@ -49,6 +50,15 @@ impl Node {
             josi, line, fileno
         )
     }
+    pub fn new_node_list(list: Vec<Node>, line: u32, fileno: u32) -> Self {
+        Node::new(
+            NodeKind::NodeList,
+            NodeValue::NodeList(list),
+            None,
+            line,
+            fileno
+        )
+    }
     pub fn get_josi_str(&self) -> String {
         match &self.josi {
             Some(josi_str) =>  josi_str.clone(),
@@ -58,16 +68,20 @@ impl Node {
     pub fn to_string(&self) -> String {
         match self.kind {
             NodeKind::NodeList => format!("NodeList:{}", self.value.to_string()),
-            NodeKind::Int => format!("Int:{}", self.value.to_string()),
+            NodeKind::Int => format!("Int:{}", self.value.to_int(0)),
+            NodeKind::Number => format!("Number:{}", self.value.to_float(0.0)),
             NodeKind::Bool => format!("Bool:{}", self.value.to_string()),
             NodeKind::Comment => format!("Comment:{}", self.value.to_string()),
             NodeKind::Let => format!("Let:{}", self.value.to_string()),
             NodeKind::GetVar => format!("GetVar:{}", self.value.to_string()),
             NodeKind::Operator => format!("Operator:{}", self.value.to_string()),
             NodeKind::String => format!("String:{}", self.value.to_string()),
+            NodeKind::StringEx => format!("StringEx:{}", self.value.to_string()),
             NodeKind::CallSysFunc => format!("CallSysFunc:{}", self.value.to_string()),
             NodeKind::If => format!("If:{}", self.value.to_string()),
-            _ => format!("{:?}", self.kind),
+            NodeKind::Kai => format!("N回:{}", self.value.to_string()),
+            NodeKind::Nop => String::from("Nop"),
+            // _ => format!("{:?}", self.kind),
         }
     }
 }
@@ -245,7 +259,6 @@ impl NodeValue {
 #[derive(Debug,Clone)]
 pub struct NodeValueLet {
     pub var_name: String,
-    pub var_info: NodeVarInfo,
     pub value_node: Vec<Node>,
 }
 
@@ -271,6 +284,59 @@ impl NodeVarMeta {
 }
 
 #[derive(Debug,Clone)]
+pub struct NodeScopeList {
+    pub scopes: Vec<NodeScope>,
+}
+impl NodeScopeList {
+    pub fn new() -> Self {
+        // generate system and global
+        let sys_scope = NodeScope::new();
+        let user_global = NodeScope::new();
+        let scopes = vec![sys_scope, user_global];
+        Self { scopes }
+    }
+    pub fn find_var(&self, name: &str) -> Option<NodeVarInfo> {
+        let mut i: isize = (self.scopes.len() - 1) as isize;
+        while i >= 0 {
+            let scope = &self.scopes[i as usize];
+            if let Some(no) = scope.find_var(name) {
+                return Some(NodeVarInfo {
+                    level: i as usize,
+                    no: *no,
+                    name: None, // 検索では変数名は返さない
+                })
+            }
+            i -= 1;
+        }
+        None
+    }
+    pub fn set_value(&mut self, level: usize, name: &str, value: NodeValue) -> usize {
+        while self.scopes.len() <= level {
+            self.scopes.push(NodeScope::new());
+        }
+        let scope = &mut self.scopes[level];
+        scope.set_var(name, value)
+    }
+    pub fn set_value_local_scope(&mut self, name: &str, value: NodeValue) -> NodeVarInfo {
+        let local = self.scopes.len() - 1;
+        let no = self.set_value(local, name, value);
+        NodeVarInfo {
+            name: None,
+            level: local,
+            no
+        }
+    }
+    pub fn get_var_value(&self, info: &NodeVarInfo) -> Option<NodeValue> {
+        let scope: &NodeScope = &self.scopes[info.level];
+        if scope.var_values.len() > info.no {
+            return Some(scope.var_values[info.no].clone());
+        }
+        None
+    }
+}
+
+
+#[derive(Debug,Clone)]
 pub struct NodeScope {
     pub var_names: HashMap<String, usize>,
     pub var_values: Vec<NodeValue>,
@@ -291,9 +357,11 @@ impl NodeScope {
         obj.set_var("それ", NodeValue::Empty);
         obj
     }
-    pub fn get_var_no(&self, name: &str) -> Option<&usize> {
+
+    pub fn find_var(&self, name: &str) -> Option<&usize> {
         self.var_names.get(name)
     }
+
     pub fn set_var(&mut self, name: &str, new_value: NodeValue) -> usize {
         match self.var_names.get(name) {
             None => {

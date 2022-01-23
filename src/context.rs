@@ -5,7 +5,7 @@ use std::collections::HashMap;
 pub struct NodeContext {
     pub callstack_level: usize,
     pub labels: HashMap<String, Node>,
-    pub scopes: Vec<NodeScope>,
+    pub scopes: NodeScopeList,
     pub files: Vec<String>,
     pub sysfuncs: Vec<SysFuncInfo>,
     errors: Vec<NodeError>,
@@ -14,14 +14,10 @@ pub struct NodeContext {
 
 impl NodeContext {
     pub fn new() -> Self {
-        // generate system scope and user global scope
-        let sys_scope = NodeScope::new();
-        let user_global = NodeScope::new();
-        let scopes = vec![sys_scope, user_global];
         NodeContext {
             callstack_level: 0,
             labels: HashMap::new(),
-            scopes,
+            scopes: NodeScopeList::new(),
             files: vec![],
             sysfuncs: vec![],
             errors: vec![],
@@ -67,26 +63,10 @@ impl NodeContext {
     }
     // for scope variables
     pub fn find_var_info(&self, name: &str) -> Option<NodeVarInfo> {
-        // 末端から変数名を検索
-        let mut level: isize = (self.scopes.len() - 1) as isize;
-        while level >= 0 {
-            let scope = &self.scopes[level as usize];
-            match scope.get_var_no(name) {
-                Some(no) => return Some(NodeVarInfo{name: None, level: level as usize, no:*no}),
-                None => {
-                    level -= 1;
-                    continue;
-                }
-            }
-        }
-        None
+        self.scopes.find_var(name)
     }
-    pub fn get_var_value(&self, i: &NodeVarInfo) -> Option<NodeValue> {
-        if i.level >= self.scopes.len() {
-            return None;
-        }
-        let scope = &self.scopes[i.level];
-        Some(scope.var_values[i.no].clone())
+    pub fn get_var_value(&self, info: &NodeVarInfo) -> Option<NodeValue> {
+        self.scopes.get_var_value(info)
     }
     // add system func
     pub fn add_sysfunc(&mut self, name: &str, args: Vec<SysArg>, func: SysFuncType) -> usize {
@@ -98,7 +78,7 @@ impl NodeContext {
         };
         self.sysfuncs.push(sfi);
         // add name to scope
-        let scope = &mut self.scopes[0];
+        let scope = &mut self.scopes.scopes[0];
         let no = scope.set_var(name, NodeValue::SysFunc(sys_no, vec![]));
         scope.var_metas[no].read_only = true;
         scope.var_metas[no].kind = NodeVarKind::SysFunction;

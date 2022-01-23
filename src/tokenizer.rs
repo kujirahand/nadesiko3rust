@@ -379,4 +379,12 @@ mod test_tokenizer {
         let t = tokenize("N回");
         assert_eq!(tokens_string(&t), "[Word:N][Kai]");
     }
+
+    #[test]
+    fn test_word_check() {
+        let t = tokenize("35回『ワン』と表示");
+        assert_eq!(tokens_string(&t), "[Int:35][Kai][String:ワン/と][Word:表示]");
+        let t = tokenize("N回");
+        assert_eq!(tokens_string(&t), "[Word:N][Kai]");
+    }
 }

@@ -92,6 +92,9 @@ impl Parser {
                 // println!("@@@sentence@@@{:?}", callfunc);
                 return Some(callfunc);
             }
+            if self.cur.eq_kind(TokenKind::Kai) {
+                return self.check_kai();
+            }
         }
         // スタックの余剰があればエラー
         for n in self.stack.iter() {
@@ -99,6 +102,41 @@ impl Parser {
         }
         //todo
         None
+    }
+
+    fn check_kai(&mut self) -> Option<Node> {
+        let kai_t = self.cur.next(); // skip 回
+        let kaisu_node = self.stack.pop().unwrap_or(Node::new_nop());
+        while self.cur.eq_kind(TokenKind::Comment) {
+            self.cur.next(); 
+        }
+        let mut single_sentence = true;
+        if self.cur.eq_kind(TokenKind::BlockBegin) {
+            single_sentence = false;
+            self.cur.next(); // ここから
+        }
+        if self.cur.eq_kind(TokenKind::Eol) {
+            single_sentence = false;
+            self.cur.next(); // LF
+        }
+        let mut body_nodes = vec![];
+        if single_sentence {
+            let node = match self.sentence() {
+                Some(node) => node,
+                None => Node::new_nop(),
+            };
+            body_nodes.push(node);
+        } else {
+            body_nodes = match self.get_sentence_list() {
+                Ok(nodes) => nodes,
+                Err(_) => return None,
+            }
+        }
+        let kai_node = Node::new(NodeKind::Kai, NodeValue::NodeList(vec![
+            kaisu_node,
+            Node::new_node_list(body_nodes, kai_t.line, self.fileno),
+        ]), None, kai_t.line, self.fileno);
+        Some(kai_node)
     }
 
     fn check_comment(&mut self) -> Option<Node> {
@@ -251,25 +289,13 @@ impl Parser {
             },
             Some(node) => node,
         };
-        // 既に存在する変数への代入?
+        // todo: ローカル変数を実装する
+        // todo: 配列の代入
+        // グローバル変数への代入
         let var_name = &word.label;
-        let var_info = match self.context.find_var_info(var_name) {
-            Some(info) => info,
-            None => {
-                let new_value = NodeValue::Empty;
-                let mut scope = self.context.scopes.pop().unwrap_or(NodeScope::new());
-                let no = scope.set_var(var_name, new_value);
-                self.context.scopes.push(scope);
-                NodeVarInfo{
-                    name: Some(String::from(var_name)),
-                    level: self.context.scopes.len() - 1,
-                    no,
-                }
-            }
-        };
+        self.context.scopes.set_value(1, &var_name, NodeValue::Empty);
         let node_value_let = NodeValueLet {
             var_name: word.label,
-            var_info: var_info,
             value_node: vec![value],
         };
         let let_node = Node::new(
@@ -277,7 +303,6 @@ impl Parser {
             NodeValue::LetVar(node_value_let),
             None, word.line, self.fileno);
         Some(let_node)
-        // todo: 配列
     }
 
     fn check_paren(&mut self) -> bool {
@@ -392,25 +417,11 @@ impl Parser {
         let t = self.cur.next(); // 変数名
         let var_name = String::from(t.label);
         let var_info = match self.context.find_var_info(&var_name) {
-            Some(mut i) => {
-                i.name = Some(var_name);
-                i
-            },
-            None => {
-                let level = self.get_scope_level();
-                let no = self.context.scopes[level].set_var(&var_name, NodeValue::Empty);
-                NodeVarInfo {
-                    name: Some(var_name), 
-                    level,
-                    no
-                }
-            },
+            Some(info) => info,
+            None => self.context.scopes.set_value_local_scope(&var_name, NodeValue::Empty),
         };
         let node = Node::new(NodeKind::GetVar, NodeValue::GetVar(var_info), t.josi, t.line, self.fileno);
         node
-    }
-    fn get_scope_level(&self) -> usize {
-        self.context.scopes.len() - 1
     }
     fn check_operator(&mut self) -> bool {
         if self.cur.eq_operator() {
