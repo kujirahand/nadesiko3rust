@@ -104,6 +104,6 @@ mod test_tokencur {
         let t = tokenizer::tokenize("123回");
         let mut cur = TokenCur::new(t);
         assert_eq!(cur.next_kind(), TokenKind::Int);
-        assert_eq!(cur.next_kind(), TokenKind::Repeat);
+        assert_eq!(cur.next_kind(), TokenKind::Kai);
     }
 }

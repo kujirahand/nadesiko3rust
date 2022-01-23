@@ -19,6 +19,7 @@ pub fn tokenize(src: &str) -> Vec<Token> {
             ';' => { flag_push(TokenKind::Eol, &mut result, &mut cur, line); continue; },
             ',' => { flag_push(TokenKind::Comma, &mut result, &mut cur, line); continue; },
             '/' => { result.push(read_slash(&mut cur, &mut line)); continue; },
+            '※' => { result.push(read_linecomment(&mut cur, &mut line)); continue; },
             // 文字列記号
             '「' => { result.push(read_string(&mut cur, &mut line, '」', true)); continue; }
             '『' => { result.push(read_string(&mut cur, &mut line, '』', false)); continue; }
@@ -84,8 +85,8 @@ pub fn tokenize(src: &str) -> Vec<Token> {
             // 数値
             '0'..='9' => { result.push(read_number(&mut cur, &mut line)); continue; },
             // word
-            'a'..='z' | 'A'..='Z' | '_' => { result.push(read_word(&mut cur, &mut line)); continue; }
-            n if n > (0xE0 as char) => { result.push(read_word(&mut cur, &mut line)); continue; }
+            'a'..='z' | 'A'..='Z' | '_' => { read_word(&mut result, &mut cur, &mut line); continue; }
+            n if n > (0xE0 as char) => { read_word(&mut result, &mut cur, &mut line); continue; }
             _ => {} // pass
         }
         // pass
@@ -135,6 +136,14 @@ fn read_lf(cur: &mut StrCur, line: &mut u32) -> Token {
     return t;
 }
 
+fn read_linecomment(cur: &mut StrCur, line: &mut u32) -> Token {
+    cur.seek(1); // skip "※"
+    let rem = cur.get_token_tostr('\n');
+    let tok = Token::new_str(TokenKind::Comment, &rem, *line);
+    *line += 1;
+    return tok;
+}
+
 fn read_slash(cur: &mut StrCur, line: &mut u32) -> Token {
     // line comment
     if cur.eq_str("//") {
@@ -181,30 +190,32 @@ fn read_number(cur: &mut StrCur, line: &mut u32) -> Token {
     return Token::new(TokenKind::Int, num_s, josi_opt, *line);
 }
 
-fn check_special(cur: &mut StrCur, word: &str, kind: TokenKind, line: u32) -> Option<Token> {
+fn check_special(result: &mut Vec<Token>, cur: &mut StrCur, word: &str, kind: TokenKind, line: u32) -> bool {
     if cur.eq_str(word) {
         let len = word.chars().count();
         cur.seek(len as i32);
-        return Some(Token::new_str(kind, word, line));
+        let tok = Token::new_str(kind, word, line);
+        result.push(tok);
+        return true;
     }
-    None
+    false
 }
 
-fn read_word(cur: &mut StrCur, line: &mut u32) -> Token {
+fn read_word(result: &mut Vec<Token>, cur: &mut StrCur, line: &mut u32) -> bool {
     let mut word: Vec<char> = vec![];
     let mut josi_opt:Option<String> = None;
 
     // 特別な語句を例外で登録する
     if cur.eq_str("ここ") {        
-        if let Some(t) = check_special(cur, "ここから", TokenKind::BlockBegin, *line) { return t; }
-        if let Some(t) = check_special(cur, "ここまで", TokenKind::BlockEnd, *line) { return t; }
+        if check_special(result, cur, "ここから", TokenKind::BlockBegin, *line) { return true; }
+        if check_special(result, cur, "ここまで", TokenKind::BlockEnd, *line) { return true; }
     }
     if cur.eq_str("違") {
-        if let Some(t) = check_special(cur, "違えば", TokenKind::Else, *line) { return t; }
-        if let Some(t) = check_special(cur, "違うなら", TokenKind::Else, *line) { return t; }
+        if check_special(result, cur, "違えば", TokenKind::Else, *line) { return true; }
+        if check_special(result, cur, "違うなら", TokenKind::Else, *line) { return true; }
     }
-    if let Some(t) = check_special(cur, "または", TokenKind::Or, *line) { return t; }
-    if let Some(t) = check_special(cur, "あるいは", TokenKind::Or, *line) { return t; }
+    if check_special(result, cur, "または", TokenKind::Or, *line) { return true; }
+    if check_special(result, cur, "あるいは", TokenKind::Or, *line) { return true; }
     
     // ひらがなスタートなら1文字目は助詞にならない
     if kanautils::is_hiragana(cur.peek()) {
@@ -229,11 +240,26 @@ fn read_word(cur: &mut StrCur, line: &mut u32) -> Token {
         break;
     }
     
+    // 末尾が「回」なら分割、N回→N|回
+    let has_kai = if word.last() == Some(&'回') {
+        word.pop(); // 回を削除
+        true
+    } else { false };
     // 送りがなをカット
     word = delete_okurigana(word);
-    let word_s: String = word.iter().collect();
-    let kind = reserved_words::check_kind(&word_s);
-    Token::new(kind, word_s, josi_opt, *line)
+    if word.len() > 0 {
+        // トークンを追加
+        let word_s: String = word.iter().collect();
+        let kind = reserved_words::check_kind(&word_s);
+        let tok = Token::new(kind, word_s, josi_opt, *line);
+        result.push(tok);
+    }
+    //　回を追加
+    if has_kai {
+        let kai_tok = Token::new(TokenKind::Kai, String::from("回"), None, *line);
+        result.push(kai_tok);
+    }
+    true
 }
 
 fn delete_okurigana(word: Vec<char>) -> Vec<char> {
@@ -349,6 +375,8 @@ mod test_tokenizer {
     #[test]
     fn test_reserved_word() {
         let t = tokenize("35回");
-        assert_eq!(tokens_string(&t), "[Int:35][Repeat]");
+        assert_eq!(tokens_string(&t), "[Int:35][Kai]");
+        let t = tokenize("N回");
+        assert_eq!(tokens_string(&t), "[Word:N][Kai]");
     }
 }

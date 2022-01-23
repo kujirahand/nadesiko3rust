@@ -6,7 +6,7 @@ use crate::token::TokenKind;
 pub fn check_kind(s: &str) -> TokenKind {
     // Word => 予約語
     if s == "もし" { return TokenKind::If }
-    if s == "回" { return TokenKind::Repeat }
+    if s == "回" { return TokenKind::Kai }
     if s == "ここまで" { return TokenKind::BlockEnd }
     if s == "ここから" { return TokenKind::BlockBegin }
     if s == "かつ" { return TokenKind::And }
