@@ -3,6 +3,7 @@ use std::collections::HashMap;
 
 #[derive(Clone)]
 pub struct NodeContext {
+    pub debug_mode: bool,
     pub callstack_level: usize,
     pub labels: HashMap<String, Node>,
     pub scopes: NodeScopeList,
@@ -12,11 +13,14 @@ pub struct NodeContext {
     error_count: usize,
     pub try_break: Option<usize>,
     pub try_continue: Option<usize>,
+    pub try_return: Option<usize>,
+    pub return_level: usize,
 }
 
 impl NodeContext {
     pub fn new() -> Self {
         NodeContext {
+            debug_mode: false,
             callstack_level: 0,
             labels: HashMap::new(),
             scopes: NodeScopeList::new(),
@@ -26,6 +30,8 @@ impl NodeContext {
             error_count: 0,
             try_break: None,
             try_continue: None,
+            try_return: None,
+            return_level: 0,
         }
     }
     // for file management
@@ -65,6 +71,9 @@ impl NodeContext {
             _ => {},
         }
     }
+    pub fn throw_runtime_error(&mut self, msg: String, line: u32, fileno: u32) {
+        self.throw_error(NodeErrorKind::RuntimeError, NodeErrorLevel::Error, msg, line, fileno);
+    }
     // for scope variables
     pub fn find_var_info(&self, name: &str) -> Option<NodeVarInfo> {
         self.scopes.find_var(name)
@@ -80,26 +89,22 @@ impl NodeContext {
     pub fn add_sysfunc(&mut self, name: &str, args: Vec<SysArg>, func: SysFuncType) -> usize {
         // add func to sysfuncs
         let sys_no = self.sysfuncs.len();
-        let sfi = SysFuncInfo{
-            func,
-            args,
-        };
+        let sfi = SysFuncInfo{ func };
         self.sysfuncs.push(sfi);
         // add name to scope
         let scope = &mut self.scopes.scopes[0];
         let no = scope.set_var(name, NodeValue::SysFunc(String::from(name), sys_no, vec![]));
         scope.var_metas[no].read_only = true;
-        scope.var_metas[no].kind = NodeVarKind::SysFunction;
+        scope.var_metas[no].kind = NodeVarKind::SysFunc(args);
         sys_no     
     }
 }
 
-type SysFuncType = fn(&mut NodeContext, Vec<NodeValue>) -> NodeValue;
+type SysFuncType = fn(&mut NodeContext, Vec<NodeValue>) -> Option<NodeValue>;
 
 #[derive(Clone)]
 pub struct SysFuncInfo {
     pub func: SysFuncType,
-    pub args: Vec<SysArg>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

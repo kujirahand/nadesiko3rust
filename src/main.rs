@@ -23,7 +23,6 @@ fn main() {
     let mut runtime = String::from("");
     for (i, arg) in std::env::args().enumerate() {
         if i == 0 { runtime = arg; continue; } // 自分自身
-        println!("{}:{}", i, arg);
         if arg.eq("") { continue; }
         let ch = arg.chars().nth(0).unwrap_or('\0');
         if ch == '-' { // option
@@ -62,29 +61,29 @@ fn main() {
         else { runner::eval_str(&src); }
         return;
     }
-    compile_and_run(&src, &filename);
+    compile_and_run(&src, &filename, debug_mode);
 }
 
-fn compile_and_run(src: &str, fname: &str) {
+fn compile_and_run(src: &str, fname: &str, debug_mode: bool) {
     // prepare
     let mut parser = parser::Parser::new();
+    parser.context.debug_mode = debug_mode;
     sys_function::register(&mut parser.context);
     // tokenizer
-    println!("--- tokenize ---");
+    if debug_mode { println!("--- tokenize ---"); }
     let tokens = tokenizer::tokenize(src);
-    println!("{}", token::tokens_string(&tokens));
-    println!("--- parse ---");
+    if debug_mode { println!("{}", token::tokens_string(&tokens)); }
+    if debug_mode { println!("--- parse ---"); }
     let nodes = match parser.parse(tokens, fname) {
         Ok(nodes) => nodes,
         Err(e) => { println!("!!{}", e); return },
     };
-    println!("{}", node::nodes_to_string(&nodes, "\n"));
-    println!("--- run ---");
+    if debug_mode { println!("{}", node::nodes_to_string(&nodes, "\n")); }
+    if debug_mode { println!("--- run ---"); }
     match runner::run_nodes(&mut parser.context, &nodes) {
-        Ok(v) => println!("{:?}", v),
-        Err(e) => println!("!!{}", e),
+        Ok(v) => if debug_mode { println!(">> {}", v.to_string()); },
+        Err(e) => println!("!! {}", e),
     }
-    println!("ok.");   
 }
 
 fn show_usage() {

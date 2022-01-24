@@ -18,6 +18,7 @@ pub fn run_node(ctx: &mut NodeContext, cur: &Node) -> Option<NodeValue> {
         NodeKind::GetVar => result = run_get_var(ctx, cur).unwrap_or(NodeValue::Empty),
         NodeKind::Operator => result = run_operator(ctx, cur),
         NodeKind::CallSysFunc => result = run_call_sysfunc(ctx, cur),
+        NodeKind::CallUserFunc => result = run_call_userfunc(ctx, cur),
         NodeKind::NodeList => {
             result = match run_nodes(ctx, &cur.value.to_nodes()) {
                 Ok(value) => value,
@@ -29,9 +30,45 @@ pub fn run_node(ctx: &mut NodeContext, cur: &Node) -> Option<NodeValue> {
         NodeKind::For => match run_for(ctx, cur) { Some(v) => result = v, None => {}},
         NodeKind::Break => { ctx.try_break = Some(ctx.callstack_level) },
         NodeKind::Continue => { ctx.try_continue = Some(ctx.callstack_level) },
+        NodeKind::Return => result = run_return(ctx, cur),
         // _ => { println!("[エラー] runner未実装のノード :{:?}", cur); return None; }
     }
     Some(result)
+}
+
+pub fn run_nodes(ctx: &mut NodeContext, nodes: &Vec<Node>) -> Result<NodeValue, String> {
+    ctx.callstack_level += 1;
+    let nodes_len = nodes.len();
+    let mut result = NodeValue::Empty;
+    let mut index = 0;
+    while index < nodes_len {
+        if ctx.has_error() { return Err(ctx.get_error_str()); }
+        if ctx.try_continue != None { return Ok(NodeValue::Empty); }
+        if ctx.try_break != None { return Ok(NodeValue::Empty); }
+        if ctx.try_return != None { return Ok(NodeValue::Empty); }
+        let cur:&Node = &nodes[index];
+        if ctx.debug_mode {
+            println!("[RUN]({:02}) {}{}", index, indent_str(ctx.callstack_level-1), cur.to_string());
+        }
+        if let Some(v) = run_node(ctx, cur) { result = v; }
+        index += 1;
+    }
+    ctx.callstack_level -= 1;
+    Ok(result)
+}
+
+
+pub fn run_return(ctx: &mut NodeContext, cur: &Node) -> NodeValue {
+    match &cur.value {
+        NodeValue::NodeList(nodes) => {
+            let node = &nodes[0];
+            let result = run_node(ctx, node).unwrap_or(NodeValue::Empty);
+            ctx.scopes.set_value_local_scope("それ", result.clone());
+            ctx.try_return = Some(ctx.callstack_level);
+            result
+        },
+        _ => NodeValue::Empty,
+    }
 }
 
 pub fn run_for(ctx: &mut NodeContext, cur: &Node) -> Option<NodeValue> {
@@ -64,6 +101,10 @@ pub fn run_for(ctx: &mut NodeContext, cur: &Node) -> Option<NodeValue> {
             ctx.try_continue = None;
             continue;
         }
+        // 戻るの処理
+        if ctx.try_return != None {
+            break;
+        }
     }
     result
 }
@@ -87,6 +128,10 @@ pub fn run_kai(ctx: &mut NodeContext, cur: &Node) -> Option<NodeValue> {
             ctx.try_continue = None;
             continue;
         }
+        // 戻るの処理
+        if ctx.try_return != None {
+            break;
+        }
     }
     result
 }
@@ -106,25 +151,6 @@ pub fn run_if(ctx: &mut NodeContext, cur: &Node) -> Option<NodeValue> {
             }
         }
     }
-}
-
-
-pub fn run_nodes(ctx: &mut NodeContext, nodes: &Vec<Node>) -> Result<NodeValue, String> {
-    ctx.callstack_level += 1;
-    let nodes_len = nodes.len();
-    let mut result = NodeValue::Empty;
-    let mut index = 0;
-    while index < nodes_len {
-        if ctx.has_error() { return Err(ctx.get_error_str()); }
-        if ctx.try_continue != None { return Ok(NodeValue::Empty); }
-        if ctx.try_break != None { return Ok(NodeValue::Empty); }
-        let cur:&Node = &nodes[index];
-        println!("[RUN]({:02}) {}{}", index, indent_str(ctx.callstack_level-1), cur.to_string());
-        if let Some(v) = run_node(ctx, cur) { result = v; }
-        index += 1;
-    }
-    ctx.callstack_level -= 1;
-    Ok(result)
 }
 
 fn run_call_sysfunc(ctx: &mut NodeContext, node: &Node) -> NodeValue {
@@ -149,7 +175,79 @@ fn run_call_sysfunc(ctx: &mut NodeContext, node: &Node) -> NodeValue {
         _ => return NodeValue::Empty,
     };
     let info:&SysFuncInfo = &ctx.sysfuncs[func_no];
-    (info.func)(ctx, args)
+    let result = (info.func)(ctx, args);
+    match result {
+        Some(value) => {
+            ctx.scopes.set_value_local_scope("それ", value.clone());
+            value
+        },
+        None => return NodeValue::Empty,
+    }
+}
+
+fn run_call_userfunc(ctx: &mut NodeContext, node: &Node) -> NodeValue {
+    // 関数呼び出しの引数を得る
+    let (func_name, func_no, arg_nodes) = match &node.value {
+        NodeValue::SysFunc(func_name, no, nodes) => (func_name, *no, nodes),
+        _ => return NodeValue::Empty,
+    };
+    // 関数を得る
+    let info = NodeVarInfo { level: 1, no: func_no, name: None };
+    let func = match ctx.scopes.get_var_value(&info) { // 関数本体
+        Some(v) => v,
+        None => return NodeValue::Empty,
+    };
+    let meta = match ctx.scopes.get_var_meta(&info) { // メタ情報
+        Some(v) => v,
+        None => return NodeValue::Empty,
+    };
+    // 関数の引数定義を得る
+    let func_args = match meta.kind {
+        NodeVarKind::UserFunc(args) => args,
+        _ => return NodeValue::Empty,
+    };
+    // 関数スコープを作り、ローカル変数を登録する
+    let mut scope = NodeScope::new();
+    // 関数の引数を得る
+    for (i, n) in arg_nodes.iter().enumerate() {
+        match run_nodes(ctx, &vec![n.clone()]) {
+            Ok(val) => {
+                let name = &func_args[i].name;
+                scope.set_var(name, val);
+            },
+            Err(err) => {
+                ctx.throw_error(
+                    NodeErrorKind::RuntimeError, NodeErrorLevel::Error, 
+                    format!("『{}』の呼び出しでエラー。{}", func_name, err), 
+                    node.line, node.fileno);
+                return NodeValue::Empty;
+            }
+        };
+    }
+    // 関数を実行
+    ctx.scopes.push_local(scope);
+    let tmp_return_level = ctx.return_level;
+    ctx.return_level = ctx.callstack_level;
+    match func {
+        NodeValue::SysFunc(name, _no, nodes) => {
+            match run_nodes(ctx, &nodes) {
+                Ok(v) => v,
+                Err(e) => {
+                    ctx.throw_runtime_error(format!("『{}』の呼び出しでエラー。{}", name, e), node.line, node.fileno);
+                    NodeValue::Empty
+                }
+            };
+        },
+        _ => {},    
+    };
+    let scope = ctx.scopes.pop_local().unwrap_or(NodeScope::new());
+    if let Some(_level) = ctx.try_return {
+        ctx.try_return = None;
+    }
+    ctx.return_level = tmp_return_level;
+    let result = scope.get_var("それ");
+    ctx.scopes.set_value_local_scope("それ", result.clone());
+    result
 }
 
 fn run_let(ctx: &mut NodeContext, node: &Node) -> NodeValue {

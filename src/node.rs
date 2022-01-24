@@ -15,10 +15,12 @@ pub enum NodeKind {
     Let, // グローバル変数への代入
     Operator,
     CallSysFunc,
+    CallUserFunc,
     If,
     Kai,
     Break,
     Continue,
+    Return,
     For,
 }
 
@@ -33,6 +35,7 @@ pub struct Node {
 impl Node {
     pub fn to_string(&self) -> String {
         match self.kind {
+            NodeKind::Nop => String::from("Nop"),
             NodeKind::NodeList => format!("NodeList:{}", self.value.to_string()),
             NodeKind::Int => format!("Int:{}", self.value.to_int(0)),
             NodeKind::Number => format!("Number:{}", self.value.to_float(0.0)),
@@ -42,13 +45,14 @@ impl Node {
             NodeKind::GetVar => format!("{}", self.value.to_string()),
             NodeKind::Operator => format!("{}", self.value.to_string()),
             NodeKind::String => format!("\"{}\"", self.value.to_string()),
-            NodeKind::CallSysFunc => format!("Call:{}", self.value.to_string()),
+            NodeKind::CallSysFunc => format!("CallSys:{}", self.value.to_string()),
+            NodeKind::CallUserFunc => format!("CallUser:{}", self.value.to_string()),
             NodeKind::If => format!("If:{}", self.value.to_string()),
             NodeKind::Kai => format!("N回:{}", self.value.to_string()),
-            NodeKind::Nop => String::from("Nop"),
             NodeKind::Break => String::from("Break"),
             NodeKind::Continue => String::from("Continue"),
             NodeKind::For => String::from("For"),
+            NodeKind::Return => format!("戻る:{}", self.value.to_string()),
             // _ => format!("{:?}", self.kind),
         }
     }
@@ -112,12 +116,12 @@ pub enum NodeValue {
     LetVar(NodeValueLet),
     GetVar(NodeVarInfo),
     Operator(NodeValueOperator),
-    SysFunc(String, usize, Vec<Node>), // (FuncNo, Args) SysFuncNo link to context.sysfuncs[FuncNo]
+    SysFunc(String, usize, Vec<Node>), // 関数(FuncNo, Args) CallFuncNo link to context.CallFuncs[FuncNo]
 }
 impl NodeValue {
     pub fn to_string(&self) -> String {
         match self {
-            NodeValue::Empty => String::from("Empty"),
+            NodeValue::Empty => String::from(""),
             NodeValue::S(v) => format!("{}", v),
             NodeValue::I(v) => format!("{}", v),
             NodeValue::F(v) => format!("{}", v),
@@ -126,7 +130,7 @@ impl NodeValue {
             NodeValue::NodeList(nodes) => format!("NodeList:[{}]", nodes_to_string(&nodes, ",")),
             NodeValue::Operator(op) => format!("{}[{}]", op.flag, nodes_to_string(&op.nodes, ",")),
             NodeValue::GetVar(v) => format!("GetVar:{:?}({},{})", v.name.clone().unwrap_or(String::new()), v.level, v.no),
-            NodeValue::SysFunc(name, _, nodes) => format!("SysFunc:{}({})", name, nodes_to_string(&nodes, ",")),
+            NodeValue::SysFunc(name, _, nodes) => format!("CallFunc:{}({})", name, nodes_to_string(&nodes, ",")),
             // _ => String::from(""),
         }
     }
@@ -306,6 +310,16 @@ impl NodeScopeList {
         let scopes = vec![sys_scope, user_global];
         Self { scopes }
     }
+    pub fn push_local(&mut self, scope: NodeScope) -> usize {
+        self.scopes.push(scope);
+        self.scopes.len()
+    }
+    pub fn pop_local(&mut self) -> Option<NodeScope> {
+        if self.scopes.len() >= 3 {
+            return self.scopes.pop();
+        }
+        None
+    }
     pub fn find_var(&self, name: &str) -> Option<NodeVarInfo> {
         let mut i: isize = (self.scopes.len() - 1) as isize;
         while i >= 0 {
@@ -359,7 +373,6 @@ pub struct NodeScope {
     pub var_names: HashMap<String, usize>,
     pub var_values: Vec<NodeValue>,
     pub var_metas: Vec<NodeVarMeta>,
-    pub func_args: Vec<Vec<SysArg>>,
 }
 impl NodeScope {
     pub fn new() -> Self {
@@ -371,11 +384,18 @@ impl NodeScope {
             var_names,
             var_values,
             var_metas,
-            func_args: vec![],
         };
         // add sore
         obj.set_var("それ", NodeValue::Empty);
         obj
+    }
+
+    pub fn get_var(&self, name: &str) -> NodeValue {
+        let no = match self.find_var(name) {
+            Some(no) => *no,
+            None => return NodeValue::Empty,
+        };
+        self.var_values[no].clone()
     }
 
     pub fn find_var(&self, name: &str) -> Option<&usize> {
@@ -406,13 +426,13 @@ pub struct NodeValueOperator {
 }
 
 #[allow(dead_code)]
-#[derive(Debug,Clone,Copy,PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum NodeVarKind {
     Empty,
     Number,
     String,
-    SysFunction,
-    Function,
+    SysFunc(Vec<SysArg>),
+    UserFunc(Vec<SysArg>),
     Array,
     Dict,
 }

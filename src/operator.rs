@@ -34,7 +34,6 @@ pub fn get_node_priority(node_v: &Node) -> i8 {
         NodeKind::Operator => {
             match &node_v.value {
                 NodeValue::Operator(op) => {
-                    println!("get_node_priority({})", op.flag);
                     get_priority(op.flag)
                 },
                 _ => 127,

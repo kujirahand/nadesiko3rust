@@ -5,16 +5,17 @@ use crate::token::TokenKind;
 
 pub fn check_kind(s: &str) -> TokenKind {
     // Word => 予約語
-    if s == "もし" { return TokenKind::If }
-    if s == "回" { return TokenKind::Kai }
-    if s == "ここまで" { return TokenKind::BlockEnd }
-    if s == "ここから" { return TokenKind::BlockBegin }
-    if s == "かつ" { return TokenKind::And }
-    if s == "または" { return TokenKind::Or }
-    if s == "違" { return TokenKind::Else }
-    if s == "抜" { return TokenKind::Break }
-    if s == "続" { return TokenKind::Continue }
-    if s == "繰返" { return TokenKind::For }
+    if s == "もし" { return TokenKind::If; }
+    if s == "回" { return TokenKind::Kai; }
+    if s == "ここまで" { return TokenKind::BlockEnd; }
+    if s == "ここから" { return TokenKind::BlockBegin; }
+    if s == "かつ" { return TokenKind::And; }
+    if s == "または" { return TokenKind::Or; }
+    if s == "違" { return TokenKind::Else; }
+    if s == "抜" { return TokenKind::Break; }
+    if s == "続" { return TokenKind::Continue; }
+    if s == "繰返" { return TokenKind::For; }
+    if s == "戻" { return TokenKind::Return; }
     // todo
     TokenKind::Word
 }
