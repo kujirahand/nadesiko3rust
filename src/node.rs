@@ -10,7 +10,6 @@ pub enum NodeKind {
     Bool,
     Number,
     String,
-    StringEx,
     GetVar, // グローバル変数の取得
     Let, // グローバル変数への代入
     Operator,
@@ -38,11 +37,10 @@ impl Node {
             NodeKind::Bool => format!("Bool:{}", self.value.to_string()),
             NodeKind::Comment => format!("Comment:{}", self.value.to_string()),
             NodeKind::Let => format!("Let:{}", self.value.to_string()),
-            NodeKind::GetVar => format!("GetVar:{}", self.value.to_string()),
-            NodeKind::Operator => format!("Operator:{}", self.value.to_string()),
-            NodeKind::String => format!("String:{}", self.value.to_string()),
-            NodeKind::StringEx => format!("StringEx:{}", self.value.to_string()),
-            NodeKind::CallSysFunc => format!("CallSysFunc:{}", self.value.to_string()),
+            NodeKind::GetVar => format!("{}", self.value.to_string()),
+            NodeKind::Operator => format!("{}", self.value.to_string()),
+            NodeKind::String => format!("\"{}\"", self.value.to_string()),
+            NodeKind::CallSysFunc => format!("Call:{}", self.value.to_string()),
             NodeKind::If => format!("If:{}", self.value.to_string()),
             NodeKind::Kai => format!("N回:{}", self.value.to_string()),
             NodeKind::Nop => String::from("Nop"),
@@ -105,7 +103,7 @@ pub enum NodeValue {
     LetVar(NodeValueLet),
     GetVar(NodeVarInfo),
     Operator(NodeValueOperator),
-    SysFunc(usize, Vec<Node>), // (FuncNo, Args) SysFuncNo link to context.sysfuncs[FuncNo]
+    SysFunc(String, usize, Vec<Node>), // (FuncNo, Args) SysFuncNo link to context.sysfuncs[FuncNo]
 }
 impl NodeValue {
     pub fn to_string(&self) -> String {
@@ -117,9 +115,9 @@ impl NodeValue {
             NodeValue::B(v) => if *v { String::from("真") } else { String::from("偽") },
             NodeValue::LetVar(v) => format!("LetVar{}={:?}", v.var_name, v.value_node),
             NodeValue::NodeList(nodes) => format!("NodeList:[{}]", nodes_to_string(&nodes, ",")),
-            NodeValue::Operator(op) => format!("Operator:{}[{}]", op.flag, nodes_to_string(&op.nodes, ",")),
-            NodeValue::GetVar(var) => format!("GetVar:{:?}", var),
-            NodeValue::SysFunc(no, nodes) => format!("SysFunc:{}:[{}]", no, nodes_to_string(&nodes, ",")),
+            NodeValue::Operator(op) => format!("{}[{}]", op.flag, nodes_to_string(&op.nodes, ",")),
+            NodeValue::GetVar(v) => format!("GetVar:{:?}({},{})", v.name, v.level, v.no),
+            NodeValue::SysFunc(name, _, nodes) => format!("SysFunc:{}({})", name, nodes_to_string(&nodes, ",")),
             // _ => String::from(""),
         }
     }
@@ -138,7 +136,7 @@ impl NodeValue {
             NodeValue::S(v) => v.parse().unwrap_or(def_value),
             NodeValue::I(v) => *v,
             NodeValue::F(v) => *v as isize,
-            NodeValue::SysFunc(v, _) => *v as isize,
+            NodeValue::SysFunc(_, v, _) => *v as isize,
             NodeValue::B(v) => if *v { TRUE_VALUE } else { FALSE_VALUE },
             _ => def_value,
         }
@@ -334,6 +332,13 @@ impl NodeScopeList {
         let scope: &NodeScope = &self.scopes[info.level];
         if scope.var_values.len() > info.no {
             return Some(scope.var_values[info.no].clone());
+        }
+        None
+    }
+    pub fn get_var_meta(&self, info: &NodeVarInfo) -> Option<NodeVarMeta> {
+        let scope: &NodeScope = &self.scopes[info.level];
+        if scope.var_values.len() > info.no {
+            return Some(scope.var_metas[info.no].clone());
         }
         None
     }

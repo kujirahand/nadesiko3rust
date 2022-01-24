@@ -382,11 +382,11 @@ impl Parser {
             self.check_operator();
             return true;
         }
-        if self.cur.eq_kind(TokenKind::String) || self.cur.eq_kind(TokenKind::StringEx) {
+        if self.cur.eq_kind(TokenKind::String) {
             let t = self.cur.next();
             let node = Node::new(NodeKind::String, NodeValue::S(t.label), t.josi, t.line, self.fileno);
             self.stack.push(node);
-            self.check_operator_str();
+            self.check_operator();
             return true;
         }
         if self.cur.eq_kind(TokenKind::True) || self.cur.eq_kind(TokenKind::False) {
@@ -397,61 +397,75 @@ impl Parser {
             self.check_operator();
             return true;
         }
-        if self.check_variable() {
-            return true;
+        if self.cur.eq_kind(TokenKind::Word) {
+            return self.check_variable();
         }
         false
     }
 
-    fn check_call_function(&mut self, node: &mut Node) -> bool {
-        let var_info = match &node.value {
-            NodeValue::GetVar(info) => info,
-            _ => return false,
-        };
-        let val = self.context.get_var_value(&var_info).unwrap();
-        match val {
-            NodeValue::SysFunc(no, _) => {
-                node.kind = NodeKind::CallSysFunc;
-                let mut arg_nodes = vec![];
-                let info:&SysFuncInfo = &self.context.sysfuncs[no];
-                // todo: 助詞を確認する
-                // 引数の数だけstackからpopする
-                for _arg in info.args.iter() {
-                    let n = self.stack.pop().unwrap_or(Node::new_nop());
-                    arg_nodes.push(n);
+    fn check_call_sys_func_arg(&mut self, _func_name: &str, no: usize, _t: &Token) -> Vec<Node> {
+        let mut arg_nodes = vec![];
+        let info:&SysFuncInfo = &self.context.sysfuncs[no];
+        // todo: 助詞を確認する
+        // 引数の数だけstackからpopする
+        for _arg in info.args.iter() {
+            let n = match self.stack.pop() {
+                Some(n) => n,
+                None => {
+                    /*
+                    let msg = format!("『{}』の引数が不足しています。", String::from(func_name));
+                    self.context.throw_error(
+                        NodeErrorKind::ParserError, NodeErrorLevel::Error,
+                        "".to_string(), t.line, self.fileno);
+                    */
+                    Node::new_nop()
                 }
-                node.value = NodeValue::SysFunc(no, arg_nodes);
-                return true;
-            },
-            _ => {},    
+            };
+            arg_nodes.push(n);
         }
-        false
+        arg_nodes
     }
 
     fn check_variable(&mut self) -> bool {
-        if !self.cur.eq_kind(TokenKind::Word) { return false; }
         // 変数を得る
-        let mut node = self.get_variable();
-        if self.check_call_function(&mut node) {
-            self.stack.push(node);
-            return true;
-        }
+        let word_t = self.cur.next(); // 変数名 || 関数名
+        let name = &word_t.label;
+        let mut info = match self.context.find_var_info(name) {
+            Some(info) => info,
+            None => {
+                // 変数がなければ作る
+                self.context.scopes.set_value_local_scope(name, NodeValue::Empty)
+            }
+        };
+        // 変数か関数か
+        let node = match self.context.get_var_value(&info) {
+            Some(value) => {
+                match value {
+                    NodeValue::SysFunc(name, no, _) => {
+                        let nodes = self.check_call_sys_func_arg(&name, no, &word_t);
+                        let func_node = Node::new(
+                            NodeKind::CallSysFunc, NodeValue::SysFunc(name, no, nodes), 
+                            word_t.josi, word_t.line, self.fileno);
+                        func_node
+                    },
+                    _ => {
+                        info.name = Some(String::from(name));
+                        let var_node = Node::new(
+                            NodeKind::GetVar,
+                            NodeValue::GetVar(info),
+                            word_t.josi, word_t.line, self.fileno);
+                        var_node
+                    }
+                }
+            },
+            // 絶対ある
+            None => { return false },
+        };
         self.stack.push(node);
         self.check_operator();
         return true;
     }
-    fn get_variable(&mut self) -> Node {
-        let t = self.cur.next(); // 変数名
-        let var_name = String::from(t.label);
-        let mut var_info = match self.context.find_var_info(&var_name) {
-            Some(info) => info,
-            // なければ作る
-            None => self.context.scopes.set_value_local_scope(&var_name, NodeValue::Empty),
-        };
-        var_info.name = Some(var_name); // 変数取得で重要
-        let node = Node::new(NodeKind::GetVar, NodeValue::GetVar(var_info), t.josi, t.line, self.fileno);
-        node
-    }
+
     fn check_operator(&mut self) -> bool {
         if self.cur.eq_operator() {
             // (a + b) [+] c
@@ -493,28 +507,6 @@ impl Parser {
                 cur_flag, value_ab, value_c,
                 c_josi, 
                 op_t.line, self.fileno
-            );
-            self.stack.push(op_node);
-            return true;
-        }
-        false
-    }
-    fn check_operator_str(&mut self) -> bool {
-        if self.cur.eq_operator_str() {
-            let op_t = self.cur.next();
-            let cur_flag = op_t.as_char();
-            if !self.check_value() {
-                self.throw_error_token(&format!("演算子『{}』の後に値がありません。", op_t.label), op_t);
-                return false;
-            }
-            // a & b
-            let value_b = self.stack.pop().unwrap_or(Node::new_nop());
-            let josi_b = value_b.josi.clone();
-            let value_a  = self.stack.pop().unwrap_or(Node::new_nop());
-            // 文字列に関しては式の入れ替え不要              
-            let op_node = Node::new_operator(
-                cur_flag, value_a, value_b, 
-                josi_b, op_t.line, self.fileno
             );
             self.stack.push(op_node);
             return true;

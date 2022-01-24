@@ -7,10 +7,13 @@ use crate::token::*;
 
 // 文字列をトークンに区切る
 pub fn tokenize(src: &str) -> Vec<Token> {
+    tokenize_src(src, 0)
+}
+pub fn tokenize_src(src: &str, line_begin: u32) -> Vec<Token> {
     let src = prepare::convert(src);
     let mut cur = StrCur::from(&src);
     let mut result: Vec<Token> = vec![];
-    let mut line = 0;
+    let mut line = line_begin;
     while cur.can_read() {
         if cur.skip_space() { continue; }
         let ch = cur.peek();
@@ -21,10 +24,10 @@ pub fn tokenize(src: &str) -> Vec<Token> {
             '/' => { result.push(read_slash(&mut cur, &mut line)); continue; },
             '※' => { result.push(read_linecomment(&mut cur, &mut line)); continue; },
             // 文字列記号
-            '「' => { result.push(read_string(&mut cur, &mut line, '」', true)); continue; }
-            '『' => { result.push(read_string(&mut cur, &mut line, '』', false)); continue; }
-            '"' => { result.push(read_string(&mut cur, &mut line, '"', true)); continue; }
-            '\'' => { result.push(read_string(&mut cur, &mut line, '\'', false)); continue; }
+            '「' => { read_string(&mut result, &mut cur, &mut line, '」', true); continue; }
+            '『' => { read_string(&mut result, &mut cur, &mut line, '』', false); continue; }
+            '"' => { read_string(&mut result, &mut cur, &mut line, '"', true); continue; }
+            '\'' => { read_string(&mut result, &mut cur, &mut line, '\'', false); continue; }
             //各種カッコ
             '(' => { flag_push(TokenKind::ParenL, &mut result, &mut cur, line); continue; },
             ')' => { flag_push_josi(TokenKind::ParenR, &mut result, &mut cur, line); continue; },
@@ -291,9 +294,9 @@ fn delete_okurigana(word: Vec<char>) -> Vec<char> {
     result
 }
 
-fn read_string(cur: &mut StrCur, line: &mut u32, end_flag: char, ex_str: bool) -> Token {
+fn read_string(result: &mut Vec<Token>, cur: &mut StrCur, line: &mut u32, end_flag: char, ex_str: bool) {
     cur.next(); // begin_flag
-    let mut result: Vec<char> = vec![];
+    let mut res: Vec<char> = vec![];
     let line_begin = *line;
     while cur.can_read() {
         let c = cur.next();
@@ -303,16 +306,51 @@ fn read_string(cur: &mut StrCur, line: &mut u32, end_flag: char, ex_str: bool) -
         if c == '\n' {
             *line += 1;
         }
-        result.push(c);
+        res.push(c);
     }
     // read josi
     let josi_opt = josi_list::read_josi(cur);
-    let label = result.iter().collect();
+    let label = res.iter().collect();
     if ex_str {
-        return Token::new(TokenKind::StringEx, label, josi_opt, line_begin);
+        extract_string_ex(result, label, josi_opt, line_begin);
     } else {
-        return Token::new(TokenKind::String, label, josi_opt, line_begin);
+        let tok = Token::new(TokenKind::String, label, josi_opt, line_begin);
+        result.push(tok);
     }
+}
+
+fn extract_string_ex(result: &mut Vec<Token>, src: String, josi_opt:Option<String>, line: u32) {
+    let mut data = String::new();
+    let mut code = String::new();
+    let mut is_extract = false;
+    for c in src.chars() {
+        if is_extract {
+            if c == '}' || c == '｝' {
+                let list = tokenize_src(&code, line);
+                if list.len() > 0 {
+                    result.push(Token::new(TokenKind::PlusStr, String::from("結"), None, line));
+                    result.push(Token::new(TokenKind::ParenL, String::from("("), None, line));
+                    for t in list.into_iter() {
+                        result.push(t);
+                    }
+                    result.push(Token::new(TokenKind::ParenR, String::from(")"), None, line));
+                    result.push(Token::new(TokenKind::PlusStr, String::from("結"), None, line));
+                    is_extract = false;
+                }
+                continue;
+            }
+            code.push(c);
+            continue;
+        }
+        if c == '{' || c == '｛' {
+            is_extract = true;
+            result.push(Token::new(TokenKind::String, data, None, line));
+            data = String::new();
+            continue;
+        }
+        data.push(c);
+    }
+    result.push(Token::new(TokenKind::String, data, josi_opt.clone(), line));
 }
 
 
@@ -340,7 +378,7 @@ mod test_tokenizer {
         let t = tokenize("年齢=15");
         assert_eq!(tokens_string(&t), "[Word:年齢][=][Int:15]");
         let t = tokenize("(3.0)");
-        assert_eq!(tokens_string(&t), "[ParenL:(][Number:3.0][ParenR:)]");
+        assert_eq!(tokens_string(&t), "[(][Number:3.0][)]");
         let t = tokenize("A=3*5");
         assert_eq!(tokens_string(&t), "[Word:A][=][Int:3][*][Int:5]");
     }
@@ -354,9 +392,9 @@ mod test_tokenizer {
     #[test]
     fn test_tokenize_str() {
         let t = tokenize("35から「abc」まで置換");
-        assert_eq!(tokens_string(&t), "[Int:35/から][StringEx:abc/まで][Word:置換]");
+        assert_eq!(tokens_string(&t), "[Int:35/から][String:abc/まで][Word:置換]");
         let t = tokenize("「１２３123」");
-        assert_eq!(tokens_string(&t), "[StringEx:１２３123]");
+        assert_eq!(tokens_string(&t), "[String:１２３123]");
         let t = tokenize("'hoge'");
         assert_eq!(tokens_string(&t), "[String:hoge]");
         let t = tokenize("『boo』");
@@ -388,5 +426,11 @@ mod test_tokenizer {
         assert_eq!(tokens_string(&t), "[Int:35][Kai][String:ワン/と][Word:表示]");
         let t = tokenize("N回");
         assert_eq!(tokens_string(&t), "[Word:N][Kai]");
+    }
+
+    #[test]
+    fn test_extract_string() {
+        let t = tokenize("「a={a}」と表示");
+        assert_eq!(tokens_string(&t), "[String:a=][&][(][Word:a][)][&][String:/と][Word:表示]");
     }
 }

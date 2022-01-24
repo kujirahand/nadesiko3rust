@@ -72,6 +72,10 @@ impl NodeContext {
     pub fn get_var_value(&self, info: &NodeVarInfo) -> Option<NodeValue> {
         self.scopes.get_var_value(info)
     }
+    #[allow(dead_code)]
+    pub fn get_var_meta(&self, info: &NodeVarInfo) -> Option<NodeVarMeta> {
+        self.scopes.get_var_meta(info)
+    }
     // add system func
     pub fn add_sysfunc(&mut self, name: &str, args: Vec<SysArg>, func: SysFuncType) -> usize {
         // add func to sysfuncs
@@ -83,7 +87,7 @@ impl NodeContext {
         self.sysfuncs.push(sfi);
         // add name to scope
         let scope = &mut self.scopes.scopes[0];
-        let no = scope.set_var(name, NodeValue::SysFunc(sys_no, vec![]));
+        let no = scope.set_var(name, NodeValue::SysFunc(String::from(name), sys_no, vec![]));
         scope.var_metas[no].read_only = true;
         scope.var_metas[no].kind = NodeVarKind::SysFunction;
         sys_no     

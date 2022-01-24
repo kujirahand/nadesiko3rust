@@ -8,13 +8,13 @@ use crate::sys_function;
 pub fn run_node(ctx: &mut NodeContext, cur: &Node) -> Option<NodeValue> {
     let mut result = NodeValue::Empty;
     match cur.kind {
+        NodeKind::Nop => {},
         NodeKind::Comment => {},
         NodeKind::Let => result = run_let(ctx, cur),
         NodeKind::Int => result = cur.value.clone(),
         NodeKind::Bool => result = cur.value.clone(),
         NodeKind::Number => result = cur.value.clone(),
         NodeKind::String => result = cur.value.clone(),
-        NodeKind::StringEx => result = cur.value.clone(), // TODO: 変数の展開
         NodeKind::GetVar => result = run_get_var(ctx, cur).unwrap_or(NodeValue::Empty),
         NodeKind::Operator => result = run_operator(ctx, cur),
         NodeKind::CallSysFunc => result = run_call_sysfunc(ctx, cur),
@@ -28,9 +28,7 @@ pub fn run_node(ctx: &mut NodeContext, cur: &Node) -> Option<NodeValue> {
         NodeKind::Kai => match run_kai(ctx, cur) { Some(v) => result = v, None => {}},
         NodeKind::Break => { ctx.try_break = Some(ctx.callstack_level) },
         NodeKind::Continue => { ctx.try_continue = Some(ctx.callstack_level) },
-        _ => {
-            println!("[エラー] runner未実装のノード :{:?}", cur);
-        }
+        // _ => { println!("[エラー] runner未実装のノード :{:?}", cur); return None; }
     }
     Some(result)
 }
@@ -97,11 +95,17 @@ pub fn run_nodes(ctx: &mut NodeContext, nodes: &Vec<Node>) -> Result<NodeValue, 
 fn run_call_sysfunc(ctx: &mut NodeContext, node: &Node) -> NodeValue {
     let mut args: Vec<NodeValue> = vec![];
     let func_no = match &node.value {
-        NodeValue::SysFunc(no, nodes) => {
+        NodeValue::SysFunc(func_name, no, nodes) => {
             for n in nodes.iter() {
                 let v = match run_nodes(ctx, &vec![n.clone()]) {
                     Ok(v) => v,
-                    Err(_) => return NodeValue::Empty,
+                    Err(err) => {
+                        ctx.throw_error(
+                            NodeErrorKind::RuntimeError, NodeErrorLevel::Error, 
+                            format!("『{}』の呼び出しでエラー。{}", func_name, err), 
+                            node.line, node.fileno);
+                        return NodeValue::Empty;
+                    }
                 };
                 args.push(v);
             }
@@ -226,8 +230,8 @@ mod test_runner {
 
     #[test]
     fn test_if() {
-        //let res = run_str("N=1;もしN=1ならば\n「OK」とデバッグ表示;\n違えば\n「NG」とデバッグ表示\nここまで;");
-        //assert_eq!(res.to_int(0), 123);
+        let res = eval_str("N=1;もしN=1ならば\n「OK」と表示;\n違えば\n「NG」と表示\nここまで;");
+        assert_eq!(res, "OK");
     }
     #[test]
     fn test_print() {
@@ -283,6 +287,11 @@ mod test_runner {
         assert_eq!(res, String::from("真"));
         let res = eval_str("(1==1)&&(2==2)と表示");
         assert_eq!(res, String::from("真"));
+    }
+    #[test]
+    fn test_string_ex() {
+        let res = eval_str("A=123;「A={A}」と表示");
+        assert_eq!(res, "A=123");
     }
 
 }
