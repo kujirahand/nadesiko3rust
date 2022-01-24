@@ -26,12 +26,15 @@ pub fn run_node(ctx: &mut NodeContext, cur: &Node) -> Option<NodeValue> {
         },
         NodeKind::If => match run_if(ctx, cur) { Some(v) => result = v, None => {}},
         NodeKind::Kai => match run_kai(ctx, cur) { Some(v) => result = v, None => {}},
+        NodeKind::Break => { ctx.try_break = Some(ctx.callstack_level) },
+        NodeKind::Continue => { ctx.try_continue = Some(ctx.callstack_level) },
         _ => {
             println!("[エラー] runner未実装のノード :{:?}", cur);
         }
     }
     Some(result)
 }
+
 pub fn run_kai(ctx: &mut NodeContext, cur: &Node) -> Option<NodeValue> {
     let nodes = cur.value.to_nodes();
     let kaisu_node = &nodes[0];
@@ -39,8 +42,18 @@ pub fn run_kai(ctx: &mut NodeContext, cur: &Node) -> Option<NodeValue> {
     let kaisu = run_node(ctx, kaisu_node).unwrap_or(NodeValue::I(0));
     let mut result = None;
     for i in 0..kaisu.to_int(0) {
-        ctx.scopes.set_value(1, "回数", NodeValue::I(i));
+        ctx.scopes.set_value(1, "回数", NodeValue::I(i + 1));
         result = run_node(ctx, body_node);
+        // 抜けるの処理
+        if ctx.try_break != None {
+            ctx.try_break = None;
+            break;
+        }
+        // 続けるの処理
+        if ctx.try_continue != None {
+            ctx.try_continue = None;
+            continue;
+        }
     }
     result
 }
@@ -70,6 +83,8 @@ pub fn run_nodes(ctx: &mut NodeContext, nodes: &Vec<Node>) -> Result<NodeValue, 
     let mut index = 0;
     while index < nodes_len {
         if ctx.has_error() { return Err(ctx.get_error_str()); }
+        if ctx.try_continue != None { return Ok(NodeValue::Empty); }
+        if ctx.try_break != None { return Ok(NodeValue::Empty); }
         let cur:&Node = &nodes[index];
         println!("[RUN]({:02}) {}{}", index, indent_str(ctx.callstack_level-1), cur.to_string());
         if let Some(v) = run_node(ctx, cur) { result = v; }

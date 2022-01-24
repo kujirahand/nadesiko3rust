@@ -216,6 +216,8 @@ fn read_word(result: &mut Vec<Token>, cur: &mut StrCur, line: &mut u32) -> bool 
     }
     if check_special(result, cur, "または", TokenKind::Or, *line) { return true; }
     if check_special(result, cur, "あるいは", TokenKind::Or, *line) { return true; }
+    if check_special(result, cur, "もしも", TokenKind::If, *line) { return true; }
+    if check_special(result, cur, "もし", TokenKind::If, *line) { return true; }
     
     // ひらがなスタートなら1文字目は助詞にならない
     if kanautils::is_hiragana(cur.peek()) {

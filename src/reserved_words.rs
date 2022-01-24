@@ -12,6 +12,8 @@ pub fn check_kind(s: &str) -> TokenKind {
     if s == "かつ" { return TokenKind::And }
     if s == "または" { return TokenKind::Or }
     if s == "違" { return TokenKind::Else }
+    if s == "抜" { return TokenKind::Break }
+    if s == "続" { return TokenKind::Continue }
     // todo
     TokenKind::Word
 }

@@ -68,6 +68,10 @@ impl Parser {
         return last_node.kind == kind;
     }
 
+    fn new_simple_node(&self, kind: NodeKind, t: &Token) -> Node {
+        return Node::new(kind, NodeValue::Empty, None, t.line, self.fileno)
+    }
+
     fn sentence(&mut self) -> Option<Node> {
         // 「ここまで」があれば抜ける
         if self.cur.eq_kind(TokenKind::BlockEnd) { return None; }
@@ -82,6 +86,15 @@ impl Parser {
         if let Some(node) = self.check_let() { return Some(node); }
         // もし文
         if let Some(node) = self.check_if() { return Some(node); }
+        // 抜ける・続ける
+        if self.cur.eq_kind(TokenKind::Break) {
+            let t = self.cur.next();
+            return Some(self.new_simple_node(NodeKind::Break, &t));
+        }
+        if self.cur.eq_kind(TokenKind::Continue) {
+            let t = self.cur.next();
+            return Some(self.new_simple_node(NodeKind::Continue, &t));
+        }
         // トークンの連続＋命令の場合
         while self.cur.can_read() {
             if self.cur.eq_kind(TokenKind::Eol) { break; }
@@ -202,6 +215,19 @@ impl Parser {
             break;
         }
     }
+    fn skip_comma_comment(&mut self) {
+        while self.cur.can_read() {
+            if self.cur.eq_kind(TokenKind::Comment) {
+                self.cur.next();
+                continue;
+            }
+            if self.cur.eq_kind(TokenKind::Comma) {
+                self.cur.next();
+                continue;
+            }
+            break;
+        }
+    }
 
     fn check_if(&mut self) -> Option<Node> {
         // 「もし」があるか？
@@ -212,12 +238,13 @@ impl Parser {
         if self.cur.eq_kind(TokenKind::Comma) {
             self.cur.next();
         }
+        // 条件式を得る
         let cond = match self.check_if_cond(mosi_t) {
             Some(n) => n,
             None => return None,
         };
-        // コメントがあれば飛ばす
-        while self.cur.eq_kind(TokenKind::Comment) { self.cur.next(); }
+        // コメントなどがあれば飛ばす
+        self.skip_comma_comment();
         let mut true_nodes: Vec<Node> = vec![];
         let mut false_nodes: Vec<Node> = vec![];
         // 真ブロックの取得 --- 単文か複文か
@@ -247,7 +274,7 @@ impl Parser {
         // 偽ブロックの取得 --- 単文か複文か
         if self.cur.eq_kind(TokenKind::Else) {
             self.cur.next(); // skip 違えば
-            while self.cur.eq_kind(TokenKind::Comment) { self.cur.next(); }
+            self.skip_comma_comment();
             single_sentence = true;
             if self.cur.eq_kind(TokenKind::Eol) {
                 single_sentence = false;
@@ -416,10 +443,12 @@ impl Parser {
     fn get_variable(&mut self) -> Node {
         let t = self.cur.next(); // 変数名
         let var_name = String::from(t.label);
-        let var_info = match self.context.find_var_info(&var_name) {
+        let mut var_info = match self.context.find_var_info(&var_name) {
             Some(info) => info,
+            // なければ作る
             None => self.context.scopes.set_value_local_scope(&var_name, NodeValue::Empty),
         };
+        var_info.name = Some(var_name); // 変数取得で重要
         let node = Node::new(NodeKind::GetVar, NodeValue::GetVar(var_info), t.josi, t.line, self.fileno);
         node
     }

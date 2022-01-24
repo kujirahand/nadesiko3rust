@@ -41,6 +41,8 @@ pub enum TokenKind {
     Or,
     True,
     False,
+    Break,
+    Continue,
 }
 
 #[derive(Debug,Clone)]
@@ -129,6 +131,8 @@ impl std::fmt::Display for Token {
             TokenKind::And => String::from("&&"),
             TokenKind::Or => String::from("||"),
             TokenKind::PlusStr => String::from("&"),
+            TokenKind::Break => String::from("抜"),
+            TokenKind::Continue => String::from("続"),
             // _ => format!("{:?}", self),
         };
         write!(f, "{}", s)

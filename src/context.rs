@@ -10,6 +10,8 @@ pub struct NodeContext {
     pub sysfuncs: Vec<SysFuncInfo>,
     errors: Vec<NodeError>,
     error_count: usize,
+    pub try_break: Option<usize>,
+    pub try_continue: Option<usize>,
 }
 
 impl NodeContext {
@@ -22,6 +24,8 @@ impl NodeContext {
             sysfuncs: vec![],
             errors: vec![],
             error_count: 0,
+            try_break: None,
+            try_continue: None,
         }
     }
     // for file management

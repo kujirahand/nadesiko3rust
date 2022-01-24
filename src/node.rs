@@ -11,12 +11,14 @@ pub enum NodeKind {
     Number,
     String,
     StringEx,
-    GetVar,
+    GetVar, // グローバル変数の取得
     Let, // グローバル変数への代入
     Operator,
     CallSysFunc,
     If,
     Kai,
+    Break,
+    Continue,
 }
 
 #[derive(Debug, Clone)]
@@ -28,6 +30,27 @@ pub struct Node {
     pub fileno: u32,
 }
 impl Node {
+    pub fn to_string(&self) -> String {
+        match self.kind {
+            NodeKind::NodeList => format!("NodeList:{}", self.value.to_string()),
+            NodeKind::Int => format!("Int:{}", self.value.to_int(0)),
+            NodeKind::Number => format!("Number:{}", self.value.to_float(0.0)),
+            NodeKind::Bool => format!("Bool:{}", self.value.to_string()),
+            NodeKind::Comment => format!("Comment:{}", self.value.to_string()),
+            NodeKind::Let => format!("Let:{}", self.value.to_string()),
+            NodeKind::GetVar => format!("GetVar:{}", self.value.to_string()),
+            NodeKind::Operator => format!("Operator:{}", self.value.to_string()),
+            NodeKind::String => format!("String:{}", self.value.to_string()),
+            NodeKind::StringEx => format!("StringEx:{}", self.value.to_string()),
+            NodeKind::CallSysFunc => format!("CallSysFunc:{}", self.value.to_string()),
+            NodeKind::If => format!("If:{}", self.value.to_string()),
+            NodeKind::Kai => format!("N回:{}", self.value.to_string()),
+            NodeKind::Nop => String::from("Nop"),
+            NodeKind::Break => String::from("Break"),
+            NodeKind::Continue => String::from("Continue"),
+            // _ => format!("{:?}", self.kind),
+        }
+    }
     pub fn new(kind: NodeKind, value: NodeValue, josi: Option<String>, line: u32, fileno: u32) -> Self {
         Self {
             kind,
@@ -63,25 +86,6 @@ impl Node {
         match &self.josi {
             Some(josi_str) =>  josi_str.clone(),
             None => String::from(""),
-        }
-    }
-    pub fn to_string(&self) -> String {
-        match self.kind {
-            NodeKind::NodeList => format!("NodeList:{}", self.value.to_string()),
-            NodeKind::Int => format!("Int:{}", self.value.to_int(0)),
-            NodeKind::Number => format!("Number:{}", self.value.to_float(0.0)),
-            NodeKind::Bool => format!("Bool:{}", self.value.to_string()),
-            NodeKind::Comment => format!("Comment:{}", self.value.to_string()),
-            NodeKind::Let => format!("Let:{}", self.value.to_string()),
-            NodeKind::GetVar => format!("GetVar:{}", self.value.to_string()),
-            NodeKind::Operator => format!("Operator:{}", self.value.to_string()),
-            NodeKind::String => format!("String:{}", self.value.to_string()),
-            NodeKind::StringEx => format!("StringEx:{}", self.value.to_string()),
-            NodeKind::CallSysFunc => format!("CallSysFunc:{}", self.value.to_string()),
-            NodeKind::If => format!("If:{}", self.value.to_string()),
-            NodeKind::Kai => format!("N回:{}", self.value.to_string()),
-            NodeKind::Nop => String::from("Nop"),
-            // _ => format!("{:?}", self.kind),
         }
     }
 }
