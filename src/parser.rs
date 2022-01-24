@@ -68,6 +68,12 @@ impl Parser {
         return last_node.kind == kind;
     }
 
+    fn stack_last_josi_eq(&self, josi_s: &str) -> bool {
+        if self.stack.len() == 0 { return false; }
+        let last_node = &self.stack[self.stack.len() - 1];
+        last_node.eq_josi(josi_s)
+    }
+
     fn new_simple_node(&self, kind: NodeKind, t: &Token) -> Node {
         return Node::new(kind, NodeValue::Empty, None, t.line, self.fileno)
     }
@@ -108,6 +114,9 @@ impl Parser {
             if self.cur.eq_kind(TokenKind::Kai) {
                 return self.check_kai();
             }
+            if self.cur.eq_kind(TokenKind::For) {
+                return self.check_for();
+            }
         }
         // スタックの余剰があればエラー
         for n in self.stack.iter() {
@@ -117,8 +126,59 @@ impl Parser {
         None
     }
 
+    fn check_for(&mut self) -> Option<Node> {
+        let kai_t = self.cur.next(); // skip 繰り返す
+        
+        // [Iを][0から][9まで]繰り返す
+        let made_node = self.stack.pop().unwrap_or(Node::new_nop());
+        let kara_node = self.stack.pop().unwrap_or(Node::new_nop());
+        let loop_node = if self.stack_last_josi_eq("を") || self.stack_last_josi_eq("で") {
+            self.stack.pop().unwrap_or(Node::new_nop())
+        } else {
+            Node::new_nop()
+        };
+
+        // 繰り返す内容
+        self.skip_comma_comment();
+        let mut single_sentence = true;
+        if self.cur.eq_kind(TokenKind::BlockBegin) {
+            single_sentence = false;
+            self.cur.next(); // ここから
+        }
+        if self.cur.eq_kind(TokenKind::Eol) {
+            single_sentence = false;
+            self.cur.next(); // LF
+        }
+        // 内容を取得
+        let mut body_nodes = vec![];
+        if single_sentence {
+            let node = match self.sentence() {
+                Some(node) => node,
+                None => Node::new_nop(),
+            };
+            body_nodes.push(node);
+        } else {
+            body_nodes = match self.get_sentence_list() {
+                Ok(nodes) => nodes,
+                Err(_) => return None,
+            }
+        }
+        // Nodeを生成して返す
+        let for_node = Node::new(
+            NodeKind::For, NodeValue::NodeList(vec![
+                loop_node,
+                kara_node,
+                made_node,
+                Node::new(NodeKind::NodeList, NodeValue::NodeList(body_nodes), None, kai_t.line, self.fileno),
+            ]), None, kai_t.line, self.fileno);
+        Some(for_node)
+    }
+
     fn check_kai(&mut self) -> Option<Node> {
         let kai_t = self.cur.next(); // skip 回
+        if self.cur.eq_kind(TokenKind::For) {
+            self.cur.next(); // skip 繰り返す
+        }
         let kaisu_node = self.stack.pop().unwrap_or(Node::new_nop());
         while self.cur.eq_kind(TokenKind::Comment) {
             self.cur.next(); 
@@ -403,25 +463,26 @@ impl Parser {
         false
     }
 
-    fn check_call_sys_func_arg(&mut self, _func_name: &str, no: usize, _t: &Token) -> Vec<Node> {
+    fn check_call_sys_func_arg(&mut self, func_name: &str, no: usize, line: u32) -> Vec<Node> {
         let mut arg_nodes = vec![];
         let info:&SysFuncInfo = &self.context.sysfuncs[no];
+        let mut err_msg = String::new();
         // todo: 助詞を確認する
         // 引数の数だけstackからpopする
         for _arg in info.args.iter() {
             let n = match self.stack.pop() {
                 Some(n) => n,
                 None => {
-                    /*
-                    let msg = format!("『{}』の引数が不足しています。", String::from(func_name));
-                    self.context.throw_error(
-                        NodeErrorKind::ParserError, NodeErrorLevel::Error,
-                        "".to_string(), t.line, self.fileno);
-                    */
+                    err_msg = format!("{}『{}』の引数が不足しています。", err_msg, String::from(func_name));
                     Node::new_nop()
                 }
             };
             arg_nodes.push(n);
+        }
+        if err_msg.ne("") {
+            self.context.throw_error(
+                NodeErrorKind::ParserError, NodeErrorLevel::Error,
+                err_msg, line, self.fileno);    
         }
         arg_nodes
     }
@@ -442,7 +503,7 @@ impl Parser {
             Some(value) => {
                 match value {
                     NodeValue::SysFunc(name, no, _) => {
-                        let nodes = self.check_call_sys_func_arg(&name, no, &word_t);
+                        let nodes = self.check_call_sys_func_arg(&name, no, word_t.line);
                         let func_node = Node::new(
                             NodeKind::CallSysFunc, NodeValue::SysFunc(name, no, nodes), 
                             word_t.josi, word_t.line, self.fileno);
@@ -468,32 +529,33 @@ impl Parser {
 
     fn check_operator(&mut self) -> bool {
         if self.cur.eq_operator() {
-            // (a + b) [+] c
             let op_t = self.cur.next();
             let cur_flag = op_t.as_char();
-            // (a + b) + [c]
             if !self.check_value() {
                 self.throw_error_token(&format!("演算子『{}』の後に値がありません。", op_t.label), op_t);
                 return false;
             }
-            let value_c = self.stack.pop().unwrap_or(Node::new_nop());
-            let c_josi = value_c.josi.clone();
-            let value_ab  = self.stack.pop().unwrap_or(Node::new_nop());
+            // a [+] (b + c)
+            let value_bc = self.stack.pop().unwrap_or(Node::new_nop());
+            let c_josi = value_bc.josi.clone();
+            let value_a  = self.stack.pop().unwrap_or(Node::new_nop());
+            println!("@@[a:{} {} bc:{}]", value_a.to_string(), cur_flag, value_bc.to_string());
             // 演算子の順序を確認
             let pri_cur  = operator::get_priority(cur_flag);
-            let pri_prev = operator::get_node_priority(&value_ab);
-            // (a * b) [+] c = priority[現在 > 前回] 入れ替えなし
-            // (a + b) [*] c = priority[現在 < 前回] 入れ替えあり => a + (b * c)
+            let pri_prev = operator::get_node_priority(&value_bc);
+            println!("cur={}[{}],prev={}[{}]", pri_cur, cur_flag, pri_prev, value_bc.to_string());
+            // a + [b * c] = priority[現在 > 前回] 入れ替えなし
+            // a * [b + c] = priority[現在 < 前回] 入れ替えあり => (a * b) + c
             if pri_cur > pri_prev {
                 // 入れ替え
-                match value_ab.value {
+                match value_bc.value {
                     NodeValue::Operator(mut op) => {
+                        let value_c = op.nodes.pop().unwrap();
                         let value_b = op.nodes.pop().unwrap();
-                        let value_a = op.nodes.pop().unwrap();
                         let new_node = Node::new_operator(
                             op.flag,
-                            value_a,
-                            Node::new_operator(cur_flag, value_b, value_c, None, value_ab.line, value_ab.fileno),
+                            Node::new_operator(cur_flag, value_a, value_b, None, value_c.line, value_c.fileno),
+                            value_c,
                             c_josi,
                             op_t.line, self.fileno);
                         self.stack.push(new_node);
@@ -504,7 +566,7 @@ impl Parser {
             }
             // 入れ替えなし              
             let op_node = Node::new_operator(
-                cur_flag, value_ab, value_c,
+                cur_flag, value_a, value_bc,
                 c_josi, 
                 op_t.line, self.fileno
             );

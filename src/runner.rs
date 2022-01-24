@@ -26,11 +26,46 @@ pub fn run_node(ctx: &mut NodeContext, cur: &Node) -> Option<NodeValue> {
         },
         NodeKind::If => match run_if(ctx, cur) { Some(v) => result = v, None => {}},
         NodeKind::Kai => match run_kai(ctx, cur) { Some(v) => result = v, None => {}},
+        NodeKind::For => match run_for(ctx, cur) { Some(v) => result = v, None => {}},
         NodeKind::Break => { ctx.try_break = Some(ctx.callstack_level) },
         NodeKind::Continue => { ctx.try_continue = Some(ctx.callstack_level) },
         // _ => { println!("[エラー] runner未実装のノード :{:?}", cur); return None; }
     }
     Some(result)
+}
+
+pub fn run_for(ctx: &mut NodeContext, cur: &Node) -> Option<NodeValue> {
+    let nodes = cur.value.to_nodes();
+    let loop_node = &nodes[0];
+    let kara_node = &nodes[1];
+    let made_node = &nodes[2];
+    let body_node = &nodes[3];
+    let kara_v = run_node(ctx, &kara_node).unwrap_or(NodeValue::Empty);
+    let made_v = run_node(ctx, &made_node).unwrap_or(NodeValue::Empty);
+    let mut result = None;
+    for i in kara_v.to_int(0)..=made_v.to_int(0) {
+        if loop_node.kind == NodeKind::GetVar {
+            match &loop_node.value {
+                NodeValue::GetVar(info) => {
+                    let name: String = info.name.clone().unwrap_or(String::new());
+                    ctx.scopes.set_value_local_scope(&name, NodeValue::I(i));
+                },
+                _ => {},
+            }
+        }
+        result = run_node(ctx, body_node);
+        // 抜けるの処理
+        if ctx.try_break != None {
+            ctx.try_break = None;
+            break;
+        }
+        // 続けるの処理
+        if ctx.try_continue != None {
+            ctx.try_continue = None;
+            continue;
+        }
+    }
+    result
 }
 
 pub fn run_kai(ctx: &mut NodeContext, cur: &Node) -> Option<NodeValue> {
@@ -286,6 +321,14 @@ mod test_runner {
         let res = eval_str("真||偽と表示");
         assert_eq!(res, String::from("真"));
         let res = eval_str("(1==1)&&(2==2)と表示");
+        assert_eq!(res, String::from("真"));
+        let res = eval_str("1+2*3と表示");
+        assert_eq!(res, String::from("7"));
+        let res = eval_str("1*2+3と表示");
+        assert_eq!(res, String::from("5"));
+        let res = eval_str("5%2+1と表示");
+        assert_eq!(res, String::from("2"));
+        let res = eval_str("5%2=1と表示");
         assert_eq!(res, String::from("真"));
     }
     #[test]

@@ -18,6 +18,7 @@ pub enum NodeKind {
     Kai,
     Break,
     Continue,
+    For,
 }
 
 #[derive(Debug, Clone)]
@@ -46,6 +47,7 @@ impl Node {
             NodeKind::Nop => String::from("Nop"),
             NodeKind::Break => String::from("Break"),
             NodeKind::Continue => String::from("Continue"),
+            NodeKind::For => String::from("For"),
             // _ => format!("{:?}", self.kind),
         }
     }
@@ -86,6 +88,12 @@ impl Node {
             None => String::from(""),
         }
     }
+    pub fn eq_josi(&self, dest_josi: &str) -> bool {
+        match &self.josi {
+            Some(j) => j.eq(dest_josi),
+            None => dest_josi == "",
+        }
+    }
 }
 
 // I to B => (i != FALSE_VALUE)
@@ -116,7 +124,7 @@ impl NodeValue {
             NodeValue::LetVar(v) => format!("LetVar{}={:?}", v.var_name, v.value_node),
             NodeValue::NodeList(nodes) => format!("NodeList:[{}]", nodes_to_string(&nodes, ",")),
             NodeValue::Operator(op) => format!("{}[{}]", op.flag, nodes_to_string(&op.nodes, ",")),
-            NodeValue::GetVar(v) => format!("GetVar:{:?}({},{})", v.name, v.level, v.no),
+            NodeValue::GetVar(v) => format!("GetVar:{:?}({},{})", v.name.clone().unwrap_or(String::new()), v.level, v.no),
             NodeValue::SysFunc(name, _, nodes) => format!("SysFunc:{}({})", name, nodes_to_string(&nodes, ",")),
             // _ => String::from(""),
         }
