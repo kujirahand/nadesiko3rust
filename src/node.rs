@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use crate::context::*;
 
 #[allow(dead_code)]
 #[derive(Debug,PartialEq,Clone,Copy)]
@@ -358,6 +359,7 @@ pub struct NodeScope {
     pub var_names: HashMap<String, usize>,
     pub var_values: Vec<NodeValue>,
     pub var_metas: Vec<NodeVarMeta>,
+    pub func_args: Vec<Vec<SysArg>>,
 }
 impl NodeScope {
     pub fn new() -> Self {
@@ -369,6 +371,7 @@ impl NodeScope {
             var_names,
             var_values,
             var_metas,
+            func_args: vec![],
         };
         // add sore
         obj.set_var("それ", NodeValue::Empty);

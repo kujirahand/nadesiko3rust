@@ -43,6 +43,7 @@ pub enum TokenKind {
     Break,
     Continue,
     For,
+    DefFunc,
 }
 
 #[derive(Debug,Clone)]
@@ -133,6 +134,7 @@ impl std::fmt::Display for Token {
             TokenKind::Break => String::from("抜"),
             TokenKind::Continue => String::from("続"),
             TokenKind::For => String::from("繰返"),
+            TokenKind::DefFunc => String::from("●関数"),
             // _ => format!("{:?}", self),
         };
         write!(f, "{}", s)

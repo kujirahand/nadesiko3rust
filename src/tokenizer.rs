@@ -83,6 +83,7 @@ pub fn tokenize_src(src: &str, line_begin: u32) -> Vec<Token> {
                 else { flag_push(TokenKind::Lt, &mut result, &mut cur, line); }
                 continue;
             },
+            '●' => { flag_push(TokenKind::DefFunc, &mut result, &mut cur, line); continue; },
             // '!'..='.' => { flag_push(TokenKind::Flag, &mut result, &mut cur, line); continue; },
             // ':'..='@' => { flag_push(TokenKind::Flag, &mut result, &mut cur, line); continue; },
             // 数値

@@ -102,15 +102,23 @@ pub struct SysFuncInfo {
     pub args: Vec<SysArg>,
 }
 
-type SysArg = Vec<String>;
+#[derive(Debug, Clone, PartialEq)]
+pub struct SysArg {
+    pub name: String, 
+    pub josi_list: Vec<String>
+}
+
 pub fn sysargs(args: &[&[&str]]) -> Vec<SysArg> {
     let mut result = vec![];
+    let mut a: char = 'A';
     for arg in args.iter() {
-        let mut arg_res: SysArg = vec![];
+        let mut arg_res: Vec<String> = vec![];
         for a in arg.iter() {
             arg_res.push(String::from(*a));
         }
-        result.push(arg_res);
+        let a_name = String::from(a);
+        result.push(SysArg{ name: a_name, josi_list: arg_res });
+        a = ((a as u8) + 1u8) as char;
     }
     result
 }

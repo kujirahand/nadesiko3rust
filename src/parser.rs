@@ -92,6 +92,8 @@ impl Parser {
         if let Some(node) = self.check_let() { return Some(node); }
         // もし文
         if let Some(node) = self.check_if() { return Some(node); }
+        // 関数定義
+        if self.cur.eq_kind(TokenKind::DefFunc) { return self.check_def_func(); }
         // 抜ける・続ける
         if self.cur.eq_kind(TokenKind::Break) {
             let t = self.cur.next();
@@ -161,6 +163,9 @@ impl Parser {
             body_nodes = match self.get_sentence_list() {
                 Ok(nodes) => nodes,
                 Err(_) => return None,
+            };
+            if self.cur.eq_kind(TokenKind::BlockEnd) {
+                self.cur.next(); // skip ここまで
             }
         }
         // Nodeを生成して返す
@@ -203,6 +208,9 @@ impl Parser {
             body_nodes = match self.get_sentence_list() {
                 Ok(nodes) => nodes,
                 Err(_) => return None,
+            };
+            if self.cur.eq_kind(TokenKind::BlockEnd) {
+                self.cur.next(); // skip ここまで
             }
         }
         let kai_node = Node::new(NodeKind::Kai, NodeValue::NodeList(vec![
@@ -574,6 +582,77 @@ impl Parser {
             return true;
         }
         false
+    }
+
+    fn read_def_func_arg(&mut self) -> Vec<SysArg> {
+        let mut args: Vec<SysArg> = vec![];
+        if self.cur.eq_kind(TokenKind::ParenL) {
+            self.cur.next();
+        }
+        while self.cur.can_read() {
+            if self.cur.eq_kind(TokenKind::ParenR) {
+                self.cur.next();
+                break;
+            }
+            if !self.cur.eq_kind(TokenKind::Word) {
+                self.throw_error_token(&format!("関数の引数定義は語句が必要です。"), self.cur.peek());
+                break;
+            }
+            let w = self.cur.next(); // 語句を1つ得る
+            // argsに同じ語句があるか
+            let mut flag_reg = false;
+            for arg in args.iter_mut() {
+                if arg.name == w.label {
+                    arg.josi_list.push(w.josi.clone().unwrap_or(String::new()));
+                    flag_reg = true;
+                }
+            }
+            if flag_reg == false {
+                args.push(SysArg{
+                    name: w.label, 
+                    josi_list: vec![w.josi.clone().unwrap_or(String::new())]
+                });
+            }
+        }
+        args
+    }
+
+    fn check_def_func(&mut self) -> Option<Node> {
+        if !self.cur.eq_kind(TokenKind::DefFunc) { return None; }
+        let def_t = self.cur.next();
+        // 引数定義を取得 : ●(引数)関数名
+        let mut args: Vec<SysArg> = vec![];
+        if self.cur.eq_kind(TokenKind::ParenL) {
+            args = self.read_def_func_arg();
+        }
+        // 関数名を取得
+        if !self.cur.eq_kind(TokenKind::Word) {
+            self.throw_error_token("関数名がありません", def_t);
+            return None;
+        }
+        let name_t = self.cur.next();
+        // 旧引数定義方法 : ●関数名(引数)
+        if self.cur.eq_kind(TokenKind::ParenL) {
+            args = self.read_def_func_arg();
+        }
+        // 関数本文ブロックを取得
+        let body_nodes = match self.get_sentence_list() {
+            Ok(nodes) => nodes,
+            Err(err) => {
+                self.throw_error_token(&format!("関数『{}』の定義でエラー。{}", name_t.label, err), def_t);
+                return None;
+            },               
+        };
+        if self.cur.eq_kind(TokenKind::BlockEnd) {
+            self.cur.next(); // skip ここまで
+        }
+        // 関数を登録
+        let scope = &mut self.context.scopes.scopes[1];
+        let no = scope.set_var(&name_t.label, NodeValue::NodeList(body_nodes));
+        scope.var_metas[no].kind = NodeVarKind::Function;
+        scope.var_metas[no].read_only = true;
+        // 関数として登録
+        Some(Node::new_nop())
     }
 }
 
