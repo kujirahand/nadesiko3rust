@@ -72,7 +72,7 @@ impl Node {
             NodeKind::Operator, 
             NodeValue::Operator(NodeValueOperator {
                 flag: operator,
-                nodes: vec![node_l, node_r]
+                nodes: vec![node_l, node_r],
             }),
             josi, line, fileno
         )
@@ -129,7 +129,7 @@ impl NodeValue {
             NodeValue::NodeList(nodes) => format!("NodeList:[{}]", nodes_to_string(&nodes, ",")),
             NodeValue::Operator(op) => format!("{}[{}]", op.flag, nodes_to_string(&op.nodes, ",")),
             NodeValue::GetVar(v) => format!("GetVar:{:?}({},{})", v.name.clone().unwrap_or(String::new()), v.level, v.no),
-            NodeValue::SysFunc(name, _, nodes) => format!("CallFunc:{}({})", name, nodes_to_string(&nodes, ",")),
+            NodeValue::SysFunc(name, _, nodes) => format!("{}({})", name, nodes_to_string(&nodes, ",")),
             // _ => String::from(""),
         }
     }

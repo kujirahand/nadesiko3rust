@@ -48,7 +48,7 @@ impl Parser {
     }
 
     fn pre_read_def_func(&mut self) {
-        // 関数だけを先に読む
+        // 関数定義だけを先読みする
         while self.cur.can_read() {
             if self.cur.eq_kind(TokenKind::DefFunc) {
                 self.check_def_func(true);
@@ -141,11 +141,19 @@ impl Parser {
                 return Some(Node::new(NodeKind::Return, NodeValue::NodeList(arg), None, ret_t.line, self.fileno));
             }
         }
-        // スタックの余剰があればエラー
-        for n in self.stack.iter() {
-            println!("@@TODO:スタックの余剰:::stack@:{:?}", n);
+        // スタックの余剰があればエラーとして報告する
+        if self.stack.len() > 0 {
+            let mut line = 0;
+            let mut errmsg = String::from("計算式に次の余剰があります。\n");
+            while let Some(n) = self.stack.pop() {
+                errmsg = format!(
+                    "{}({})\n",
+                    errmsg,
+                    n.to_string());
+                line = n.line;
+            }
+            self.throw_error(format!("{}必要なら式を(式)のようにカッコで囲ってみてください。", errmsg), line);
         }
-        //todo
         None
     }
 
@@ -390,8 +398,8 @@ impl Parser {
         Some(if_node)
     }
 
-    fn check_value_ex(&mut self) -> bool {
-        if !self.check_value() {
+    fn check_value(&mut self) -> bool {
+        if !self.check_value_one() {
             return false;
         }
         let value = match self.stack.last() {
@@ -420,7 +428,7 @@ impl Parser {
         self.cur.next(); // eq
 
         // 値を取得する
-        if !self.check_value_ex() { // error
+        if !self.check_value() { // error
             self.throw_error(format!("『{}』の代入文で値がありません。", word.label), word.line);
             return None;
         }
@@ -478,7 +486,8 @@ impl Parser {
         return true;
     }
 
-    fn check_value(&mut self) -> bool {
+    // 値(+演算子)を1つ読む
+    fn check_value_one(&mut self) -> bool {
         if self.check_paren() {
             return true;
         }
@@ -734,8 +743,7 @@ impl Parser {
         // 関数本体を変数に登録
         let func_value: NodeValue = NodeValue::SysFunc(name_s.clone(), no, body_nodes);
         self.context.scopes.set_value(1, &name_s, func_value);
-        // 関数として登録
-        Some(Node::new_nop())
+        Some(Node::new(NodeKind::Comment, NodeValue::S(format!("関数『{}』の定義", name_s)), None, def_t.line, self.fileno))
     }
 }
 
