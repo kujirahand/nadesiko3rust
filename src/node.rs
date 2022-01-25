@@ -1,5 +1,9 @@
+//! 構文解析後のノードを定義
+
 use std::collections::HashMap;
 
+
+/// ノードの種類
 #[allow(dead_code)]
 #[derive(Debug,PartialEq,Clone,Copy)]
 pub enum NodeKind {
@@ -23,6 +27,7 @@ pub enum NodeKind {
     For,
 }
 
+/// ノード構造体
 #[derive(Debug, Clone)]
 pub struct Node {
     pub kind: NodeKind,
@@ -32,6 +37,7 @@ pub struct Node {
     pub fileno: u32,
 }
 impl Node {
+    /// ノードを文字列変換する
     pub fn to_string(&self) -> String {
         match self.kind {
             NodeKind::Nop => String::from("Nop"),
@@ -104,6 +110,7 @@ impl Node {
 const FALSE_VALUE:isize = 0;
 const TRUE_VALUE:isize = 1;
 
+/// ノードの値を定義したもの
 #[derive(Debug,Clone)]
 pub enum NodeValue {
     Empty,
@@ -171,8 +178,8 @@ impl NodeValue {
     }
 }
 
+/// NodeValue 同士の計算を行うメソッドを定義
 impl NodeValue {
-    // calc method
     pub fn calc_plus(left: &NodeValue, right: &NodeValue) -> NodeValue {
         match (left, right) {
             // number

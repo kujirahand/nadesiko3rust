@@ -1,3 +1,5 @@
+//! 構文解析器
+
 use crate::token::*;
 use crate::node::*;
 use crate::tokencur::TokenCur;

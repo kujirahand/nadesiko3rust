@@ -1,5 +1,6 @@
-// トークン
+//! トークンを定義したもの
 
+/// トークンの一覧
 #[derive(Debug,Clone,PartialEq,Copy)]
 pub enum TokenKind {
     None,
@@ -47,6 +48,7 @@ pub enum TokenKind {
     Return,
 }
 
+/// トークンを表現する構造体
 #[derive(Debug,Clone)]
 pub struct Token {
     pub kind: TokenKind,

@@ -1,3 +1,5 @@
+//! 軸解析器
+
 use crate::prepare;
 use crate::strcur::StrCur;
 use crate::kanautils;
@@ -5,10 +7,11 @@ use crate::josi_list;
 use crate::reserved_words;
 use crate::token::*;
 
-// 文字列をトークンに区切る
+/// 文字列をトークンに区切る
 pub fn tokenize(src: &str) -> Vec<Token> {
     tokenize_src(src, 0)
 }
+
 pub fn tokenize_src(src: &str, line_begin: u32) -> Vec<Token> {
     let src = prepare::convert(src);
     let mut cur = StrCur::from(&src);

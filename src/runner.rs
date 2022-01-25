@@ -1,3 +1,4 @@
+//! インタプリタ Node を順に実行する
 // 走者 - Vec<Node>を順に実行
 use crate::{tokenizer, parser};
 use crate::node::*;

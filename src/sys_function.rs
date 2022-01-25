@@ -1,5 +1,8 @@
+//! なでしこの標準関数を定義したもの
+
 use crate::node::*;
 
+/// 関数をシステムに登録する
 pub fn register(ctx: &mut NodeContext) {
     ctx.add_sysfunc("表示", sysargs(&[&["を", "と"]]), sys_print);
     ctx.add_sysfunc("足", sysargs(&[&["と","に"], &["を"]]), sys_add);
@@ -9,7 +12,8 @@ pub fn register(ctx: &mut NodeContext) {
     ctx.add_sysfunc("割余", sysargs(&[&["を"], &["で"]]), sys_mod);
 }
 
-fn sys_print(_: &mut NodeContext, args: Vec<NodeValue>) -> Option<NodeValue> {
+/// なでしこのシステム関数で画面表示
+pub fn sys_print(_: &mut NodeContext, args: Vec<NodeValue>) -> Option<NodeValue> {
     let s = if args.len() > 0 { args[0].to_string() } else { String::from("<表示内容がありません>") };
     println!("{}", s);
     Some(NodeValue::S(s))

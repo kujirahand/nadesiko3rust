@@ -1,8 +1,8 @@
-/**
- * 文字列をカーソルで操作する
- */
+//! 文字列をカーソルで操作する
+
 use crate::kanautils;
 
+/// 文字列カーソル
 pub struct StrCur {
     pub src: Vec<char>,
     length: usize, // private : user can not change

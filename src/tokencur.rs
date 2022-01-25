@@ -1,3 +1,5 @@
+//! トークンの一覧をカーソルで操作するもの
+
 use crate::token::*;
 
 #[derive(Debug)]

@@ -1,11 +1,9 @@
-/**
- * kanautils.rs
- * 半角変換変換用
- */
-
+//! 全角から半角への変換関数群
+//! ソースファイルの前処理に利用する
 
 use std::char;
 
+/// 半角か
 #[allow(dead_code)]
 pub fn is_half(c: char) -> bool {
     (c as u32) < 0xF0u32
@@ -17,16 +15,19 @@ macro_rules! in_range {
     };
 }
 
+/// 半角アルファベットか
 #[allow(dead_code)]
 pub fn is_alpha(c: char) -> bool {
     in_range![c => 'a'..='z', 'A'..='Z']
 }
 
+/// 半角数字か
 #[allow(dead_code)]
 pub fn is_numeric(c: char) -> bool {
     ('0'..='9').contains(&c)
 }
 
+/// ひらがなか
 pub fn is_hiragana(c: char) -> bool {
     // 3041-309F
     ('ぁ'..='ゟ').contains(&c)
@@ -34,6 +35,7 @@ pub fn is_hiragana(c: char) -> bool {
     // 'ぁ'..='ゔ', 'ゕ'..='ゖ', 'ゝ'..='ゞ', 'ゟ'..='ゟ',
 }
 
+/// 変数名に利用可能な文字か
 pub fn is_word_chars(c: char) -> bool {
     let cu: u32 = c as u32;
     // ASCII領域
@@ -73,6 +75,7 @@ pub fn char_from_u32(i: u32, def: char) -> char {
     char::from_u32(i).unwrap_or(def)
 }
 
+/// 全角記号を半角記号に変換
 // https://en.wikipedia.org/wiki/Halfwidth_and_Fullwidth_Forms_(Unicode_block)
 pub fn to_half_ascii(c: char) -> char {
     let ci = c as u32;

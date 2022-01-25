@@ -1,5 +1,6 @@
-use crate::node::*;
+//! 演算子の優先順位を定義
 
+use crate::node::*;
 
 //// 演算における値の優先順位
 const OP_PRIORITY_VALUE: i8 = 100;

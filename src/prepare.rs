@@ -1,3 +1,5 @@
+//! 前置処理
+
 use crate::kanautils;
 use crate::strcur::StrCur;
 
