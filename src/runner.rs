@@ -443,8 +443,10 @@ mod test_runner {
     }
 
     #[test]
-    fn test_let_eval2() {
+    fn test_calc_long() {
         let res = eval_str("(5から3を引く)を表示。");
         assert_eq!(res, "2");
+        let res = eval_str("5*2+2+3を表示。");
+        assert_eq!(res, "15");
     }
 }
