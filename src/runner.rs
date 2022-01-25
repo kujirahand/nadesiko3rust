@@ -442,4 +442,9 @@ mod test_runner {
         assert_eq!(res, "6");
     }
 
+    #[test]
+    fn test_let_eval2() {
+        let res = eval_str("(5から3を引く)を表示。");
+        assert_eq!(res, "2");
+    }
 }

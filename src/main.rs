@@ -1,17 +1,4 @@
-mod prepare;
-mod strcur;
-mod token;
-mod kanautils;
-mod tokenizer;
-mod josi_list;
-mod parser;
-mod reserved_words;
-mod tokencur;
-mod node;
-mod runner;
-mod operator;
-mod sys_function;
-mod sys_function_debug;
+use nadesiko3::*;
 use std::fs;
 
 fn main() {

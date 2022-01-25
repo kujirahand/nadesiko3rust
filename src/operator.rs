@@ -5,26 +5,26 @@ use crate::node::*;
 // 演算子の優先順位を定義
 pub fn get_priority(c: char) -> i8 {
     match c {
-        '(' => 6,
-        '^' => 5,
+        '(' => 60,
+        '^' => 50,
         // mul, div
-        '*' => 4, 
-        '/' => 4,
-        '%' => 4,
+        '*' => 40, 
+        '/' => 40,
+        '%' => 40,
         // plus, minus
-        '+' => 3,
-        '結' => 3, // 文字列の加算
-        '-' => 3,
+        '+' => 30,
+        '結' => 30, // 文字列の加算
+        '-' => 30,
         // comp
-        '>' => 2,
-        '≧' => 2,
-        '<' => 2,
-        '≦' => 2,
-        '=' => 2,
-        '≠' => 2,
+        '>' => 20,
+        '≧' => 20,
+        '<' => 20,
+        '≦' => 20,
+        '=' => 20,
+        '≠' => 20,
         // or and
-        '&' => 1,
-        '|' => 1,
+        '&' => 10,
+        '|' => 10,
         _ => 127,
     }
 }
@@ -39,6 +39,13 @@ pub fn get_node_priority(node_v: &Node) -> i8 {
                 _ => 127,
             }
         },
+        NodeKind::Bool => 127,
+        NodeKind::Int => 127,
+        NodeKind::Number => 127,
+        NodeKind::String => 127,
+        NodeKind::GetVar => 127,
+        NodeKind::CallSysFunc => 5,
+        NodeKind::CallUserFunc => 5,
         _ => 127,
     }
 }

@@ -399,9 +399,11 @@ impl Parser {
     }
 
     fn check_value(&mut self) -> bool {
+        // 値を一つ取得
         if !self.check_value_one() {
             return false;
         }
+        // 助詞を確認
         let value = match self.stack.last() {
             Some(v) => v,
             None => return false,
@@ -411,15 +413,15 @@ impl Parser {
         }
         // 助詞があれば、それは関数の引数なので連続で値を読む
         while self.cur.can_read() {
-            if self.check_value() {
+            if self.check_value_one() {
                 if self.stack_last_eq(NodeKind::CallSysFunc) { return true; }
                 if self.stack_last_eq(NodeKind::CallUserFunc) { return true; }
-                if self.stack_last_josi_eq("") {
-                    break;              
-                }
+                if self.stack_last_josi_eq("") { return true; }
+                continue;
             }
+            break;
         }
-        false
+        true
     }
 
     fn check_let(&mut self) -> Option<Node> {
@@ -464,6 +466,7 @@ impl Parser {
             self.throw_error_token("『(..)』の内側に値が必要です。", t);
             return false;
         }
+        /*
         // 閉じ括弧まで繰り返し値を読む
         while self.cur.can_read() {
             if self.cur.eq_kind(TokenKind::ParenR) { break; }
@@ -474,6 +477,7 @@ impl Parser {
             if self.stack_last_eq(NodeKind::CallSysFunc) { break; }
             if self.stack_last_eq(NodeKind::CallUserFunc) { break; }
         }
+        */
         let value_node = self.stack.pop().unwrap_or(Node::new_nop());
         if !self.cur.eq_kind(TokenKind::ParenR) {
             self.throw_error_token("『)』閉じカッコが必要です。", t);
@@ -531,18 +535,28 @@ impl Parser {
     fn read_func_args(&mut self, func_name: &str, args: Vec<SysArg>, line: u32) -> Vec<Node> {
         let mut arg_nodes = vec![];
         let mut err_msg = String::new();
+        let mut sore_hokan = false;
         // todo: 助詞を確認する
         // 引数の数だけstackからpopする
         for _arg in args.iter() {
             let n = match self.stack.pop() {
                 Some(n) => n,
                 None => {
+                    if !sore_hokan {
+                        let sore_var = self.context.find_var_info("それ").unwrap_or(NodeVarInfo{level:1, no:0, name:None});
+                        let sore_node = Node::new(NodeKind::GetVar,
+                            NodeValue::GetVar(sore_var), None, line, self.fileno);
+                        arg_nodes.push(sore_node);
+                        sore_hokan = true;
+                        continue;
+                    }
                     err_msg = format!("{}『{}』の引数が不足しています。", err_msg, String::from(func_name));
                     Node::new_nop()
                 }
             };
             arg_nodes.push(n);
         }
+        arg_nodes.reverse();
         if err_msg.ne("") {
             self.context.throw_error(
                 NodeErrorKind::ParserError, NodeErrorLevel::Error,
@@ -615,12 +629,12 @@ impl Parser {
         if !self.cur.eq_operator() { return false; }
         let op_t = self.cur.next();
         let cur_flag = op_t.as_char();
-        if !self.check_value() {
+        if !self.check_value_one() {
             self.throw_error_token(&format!("演算子『{}』の後に値がありません。", op_t.label), op_t);
             return false;
         }
         // a [+] (b + c)
-        let value_bc = self.stack.pop().unwrap_or(Node::new_nop());
+        let mut value_bc = self.stack.pop().unwrap_or(Node::new_nop());
         let c_josi = value_bc.josi.clone();
         let value_a  = self.stack.pop().unwrap_or(Node::new_nop());
         // println!("@@[a:{} {} bc:{}]", value_a.to_string(), cur_flag, value_bc.to_string());
@@ -632,8 +646,8 @@ impl Parser {
         // a * [b + c] = priority[現在 < 前回] 入れ替えあり => (a * b) + c
         if pri_cur > pri_prev {
             // 入れ替え
-            match value_bc.value {
-                NodeValue::Operator(mut op) => {
+            match &mut value_bc.value {
+                NodeValue::Operator(op) => {
                     let value_c = op.nodes.pop().unwrap();
                     let value_b = op.nodes.pop().unwrap();
                     let new_node = Node::new_operator(
@@ -644,7 +658,19 @@ impl Parser {
                         op_t.line, self.fileno);
                     self.stack.push(new_node);
                 },
-                _ => { self.throw_error_token("システムエラー::演算子", op_t); return false; }
+                NodeValue::SysFunc(name, no, nodes) => {
+                    let value_b = nodes.remove(0);
+                    let op_node = Node::new_operator(
+                        cur_flag,
+                        value_a,
+                        value_b,
+                        c_josi,
+                        op_t.line, self.fileno);
+                    nodes.insert(0, op_node);
+                    value_bc.value = NodeValue::SysFunc(name.clone(), *no, nodes.clone());
+                    self.stack.push(value_bc);
+                },
+                _ => { self.throw_error_token("計算式のエラー(演算子の入れ替えに失敗)", op_t); return false; }
             }
             return true;
         }
