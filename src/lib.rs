@@ -1,3 +1,28 @@
+//! # Nadesiko Script v3
+//! Nadesiko is one of Japanese programming languages.
+//! You can write the code using Japanese.
+//! 
+//! # Example
+//! ```
+//! use nadesiko3::*;
+//! // 文字を表示
+//! let result = eval_str("「こんにちは」と表示");
+//! println!("{}", result);
+//! // 計算して表示
+//! let result = eval_str("1+2×3と表示");
+//! println!("{}", result);
+//! // 以下のように記述することもできます
+//! let result = eval_str("1に2を足して表示");
+//! println!("{}", result);
+//! ```
+//! 
+//! # Build for Command line
+//! ```sh
+//! % cargo build
+//! % nadesiko3 eval "1+2*3を表示"
+//! ```
+//! 
+
 pub mod prepare;
 pub mod strcur;
 pub mod token;
@@ -13,24 +38,7 @@ pub mod operator;
 pub mod sys_function;
 pub mod sys_function_debug;
 
-/// # Nadesiko3 script for Rust
-/// Japanese programming language "Nadesiko"
-/// - [URL] https://github.com/kujirahand/nadesiko3rust
-/// 
-/// # Example
-/// ```
-/// use nadesiko3::*;
-/// // 計算して表示
-/// let result = eval_str("1+2×3と表示");
-/// println!("{}", result);
-/// // 文字を表示
-/// let result = eval_str("「こんにちは」と表示");
-/// println!("{}", result);
-/// // 日本語式
-/// let result = eval_str("1に2を足して表示");
-/// println!("{}", result);
-/// ```
-
+/// 引数codeに指定したプログラムを実行して結果を文字列で返します。
 pub fn eval_str(code: &str) -> String {
     runner::eval_str(code)   
 }

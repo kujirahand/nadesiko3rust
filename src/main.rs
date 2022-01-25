@@ -1,3 +1,8 @@
+/// # Nadesiko3 script for Rust
+/// Japanese programming language "Nadesiko"
+/// - <https://github.com/kujirahand/nadesiko3rust>
+
+
 use nadesiko3::*;
 use std::fs;
 
