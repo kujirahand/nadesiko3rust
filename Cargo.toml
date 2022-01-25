@@ -11,4 +11,8 @@ homepage = "https://nadesi.com"
 keywords = ["script", "Japanese"] 
 include = ["src/", "LICENSE", "README.md", "CHANGELOG.md", "COPYRIGHT"]
 
+[package.metadata.docs.rs]
+rustc-args = ["--cfg", "docsrs"]
+all-features = true
+
 [dependencies]
