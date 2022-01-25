@@ -1,8 +1,9 @@
-// 予約語
+//! 予約語を定義したもの
 // @see https://github.com/kujirahand/nadesiko3/blob/master/src/nako_reserved_words.js
 
 use crate::token::TokenKind;
 
+/// 文字列が予約語かどうか調べて TokenKind に変換
 pub fn check_kind(s: &str) -> TokenKind {
     // Word => 予約語
     if s == "もし" { return TokenKind::If; }
