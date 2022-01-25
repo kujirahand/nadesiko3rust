@@ -8,7 +8,6 @@ mod parser;
 mod reserved_words;
 mod tokencur;
 mod node;
-mod context;
 mod runner;
 mod operator;
 mod sys_function;

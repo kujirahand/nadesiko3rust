@@ -1,7 +1,6 @@
 // 走者 - Vec<Node>を順に実行
 use crate::{tokenizer, parser};
 use crate::node::*;
-use crate::context::*;
 use crate::sys_function_debug;
 use crate::sys_function;
 
@@ -433,6 +432,14 @@ mod test_runner {
     fn test_string_ex() {
         let res = eval_str("A=123;「A={A}」と表示");
         assert_eq!(res, "A=123");
+    }
+
+    #[test]
+    fn test_let_eval() {
+        let res = eval_str("A=1に2を足す。Aを表示。");
+        assert_eq!(res, "3");
+        let res = eval_str("A=2に3を掛ける。Aを表示。");
+        assert_eq!(res, "6");
     }
 
 }

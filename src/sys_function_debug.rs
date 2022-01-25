@@ -3,7 +3,6 @@
 //------------------------------------
 // (用途) 標準関数を全部足すとデバッグがやりづらい時に使う。最低限の関数定義
 use crate::node::*;
-use crate::context::*;
 
 pub fn register(ctx: &mut NodeContext) {
     ctx.add_sysfunc("表示", sysargs(&[&["を", "と"]]), sys_debug_print);
