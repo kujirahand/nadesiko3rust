@@ -53,6 +53,7 @@ pub fn tokenize_src(src: &str, line_begin: u32) -> Vec<Token> {
             ',' => { flag_push(TokenKind::Comma, &mut result, &mut cur, line); continue; },
             '/' => { result.push(read_slash(&mut cur, &mut line)); continue; },
             '※' => { result.push(read_linecomment(&mut cur, &mut line)); continue; },
+            '#' => { result.push(read_linecomment(&mut cur, &mut line)); continue; },
             // 文字列記号
             '「' => { read_string(&mut result, &mut cur, &mut line, '」', true); continue; }
             '『' => { read_string(&mut result, &mut cur, &mut line, '』', false); continue; }
