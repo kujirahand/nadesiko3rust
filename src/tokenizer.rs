@@ -9,7 +9,34 @@ use crate::token::*;
 
 /// 文字列をトークンに区切る
 pub fn tokenize(src: &str) -> Vec<Token> {
-    tokenize_src(src, 0)
+    // 普通にトークンに区切る
+    let tok: Vec<Token> = tokenize_src(src, 1);
+    
+    // 助詞の「は」を＝に展開する
+    let mut last_is_eq = false;
+    let mut result: Vec<Token> = vec![];
+    for t in tok.into_iter() {
+        if last_is_eq {
+            last_is_eq = false;
+            if t.kind == TokenKind::Comma { continue; } // 「Aは,1」のような場合にカンマを飛ばす
+        }
+        match &t.josi {
+            Some(j) => {
+                let line = t.line;
+                if j.eq("は") {
+                    let mut t2 = t.clone();
+                    t2.josi = None;
+                    result.push(t2);
+                    result.push(Token::new_char(TokenKind::Eq, '=', line));
+                    last_is_eq = true;
+                    continue;
+                }    
+            }
+            None => {},
+        }
+        result.push(t);
+    }
+    result
 }
 
 pub fn tokenize_src(src: &str, line_begin: u32) -> Vec<Token> {

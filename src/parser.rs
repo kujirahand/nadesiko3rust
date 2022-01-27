@@ -89,6 +89,11 @@ impl Parser {
         let last_node = &self.stack[self.stack.len() - 1];
         last_node.eq_josi(josi_s)
     }
+    fn stack_last_josi(&self) -> Option<String> {
+        if self.stack.len() == 0 { return None; }
+        let last_node = &self.stack[self.stack.len() - 1];
+        last_node.josi.clone()
+    }
 
     fn new_simple_node(&self, kind: NodeKind, t: &Token) -> Node {
         return Node::new(kind, NodeValue::Empty, None, t.line, self.fileno)
@@ -334,6 +339,7 @@ impl Parser {
             return None;
         }
         let mosi_t = self.cur.next(); // もし
+        let mosi_line = mosi_t.line;
         if self.cur.eq_kind(TokenKind::Comma) {
             self.cur.next();
         }
@@ -347,16 +353,17 @@ impl Parser {
         let mut true_nodes: Vec<Node> = vec![];
         let mut false_nodes: Vec<Node> = vec![];
         // 真ブロックの取得 --- 単文か複文か
-        let mut single_sentence = true;
+        let mut t_single_sentence = true;
+        let mut f_single_sentence = true;
         if self.cur.eq_kind(TokenKind::BlockBegin) {
-            single_sentence = false;
+            t_single_sentence = false;
             self.cur.next(); // skip ここから
         }
         if self.cur.eq_kind(TokenKind::Eol) {
-            single_sentence = false;
+            t_single_sentence = false;
             self.cur.next(); // skip EOL
         }
-        if single_sentence {
+        if t_single_sentence {
             if let Some(node) = self.sentence() {
                 true_nodes = vec![node];
             }
@@ -374,16 +381,15 @@ impl Parser {
         if self.cur.eq_kind(TokenKind::Else) {
             self.cur.next(); // skip 違えば
             self.skip_comma_comment();
-            single_sentence = true;
             if self.cur.eq_kind(TokenKind::Eol) {
-                single_sentence = false;
+                f_single_sentence = false;
                 self.cur.next(); // skip Eol
             }
             if self.cur.eq_kind(TokenKind::BlockBegin) {
-                single_sentence = false;
+                f_single_sentence = false;
                 self.cur.next(); // skip ここから
             }
-            if single_sentence {
+            if f_single_sentence {
                 if let Some(node) = self.sentence() {
                     false_nodes = vec![node];
                 }
@@ -393,10 +399,15 @@ impl Parser {
                 }
             }
         }
+        if !t_single_sentence || !f_single_sentence {
+            if self.cur.eq_kind(TokenKind::BlockEnd) {
+                self.cur.next(); // skip ここまで
+            }
+        }
         // nodes -> node
         let t_node = Node::new(NodeKind::NodeList, NodeValue::NodeList(true_nodes), None, 0, self.fileno);
         let f_node = Node::new(NodeKind::NodeList, NodeValue::NodeList(false_nodes), None, 0, self.fileno);
-        let if_node = Node::new(NodeKind::If, NodeValue::NodeList(vec![cond, t_node, f_node]), None, 0, self.fileno);
+        let if_node = Node::new(NodeKind::If, NodeValue::NodeList(vec![cond, t_node, f_node]), None, mosi_line, self.fileno);
         Some(if_node)
     }
 
@@ -406,19 +417,30 @@ impl Parser {
             return false;
         }
         // 助詞を確認
-        let value = match self.stack.last() {
-            Some(v) => v,
-            None => return false,
+        let josi_opt = self.stack_last_josi();
+        // 助詞がなければ続きはない
+        let josi_s = match josi_opt {
+            None => return true,
+            Some(s) => s,
         };
-        if value.josi == None { // 助詞がなければ続きはない
+        // 『もし..ならば』であれば続きは読まない
+        if let Some(_) = josi_list::is_josi_mosi(&josi_s) {
             return true;
         }
+
         // 助詞があれば、それは関数の引数なので連続で値を読む
         while self.cur.can_read() {
             if self.check_value_one() {
                 if self.stack_last_eq(NodeKind::CallSysFunc) { return true; }
                 if self.stack_last_eq(NodeKind::CallUserFunc) { return true; }
-                if self.stack_last_josi_eq("") { return true; }
+                let josi_opt = self.stack_last_josi();
+                let josi_s = match josi_opt {
+                    None => return true,
+                    Some(s) => s,
+                };
+                if let Some(_) = josi_list::is_josi_mosi(&josi_s) {
+                    return true;
+                }
                 continue;
             }
             break;
@@ -443,13 +465,22 @@ impl Parser {
             },
             Some(node) => node,
         };
-        // todo: ローカル変数を実装する
         // todo: 配列の代入
-        // グローバル変数への代入
+        // ローカルに変数があるか？
         let var_name = &word.label;
-        self.context.scopes.set_value(1, &var_name, NodeValue::Empty);
+        let mut var_info = match self.context.find_var_info(&var_name) {
+            Some(info) => info,
+            None => {
+                // グローバル変数を生成
+                self.context.scopes.set_value(1, &var_name, NodeValue::Empty);
+                let info = self.context.find_var_info(&var_name);
+                info.unwrap()
+            },
+        };
+        // 値を得る
+        var_info.name = Some(var_name.clone());
         let node_value_let = NodeValueLet {
-            var_name: word.label,
+            var_info,
             value_node: vec![value],
         };
         let let_node = Node::new(

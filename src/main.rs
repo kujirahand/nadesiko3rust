@@ -59,7 +59,8 @@ fn compile_and_run(src: &str, fname: &str, debug_mode: bool) {
     // prepare
     let mut parser = parser::Parser::new();
     parser.context.debug_mode = debug_mode;
-    sys_function::register(&mut parser.context);
+    //sys_function::register(&mut parser.context);
+    sys_function_debug::register(&mut parser.context);
     // tokenizer
     if debug_mode { println!("--- tokenize ---"); }
     let tokens = tokenizer::tokenize(src);
@@ -69,6 +70,22 @@ fn compile_and_run(src: &str, fname: &str, debug_mode: bool) {
         Ok(nodes) => nodes,
         Err(e) => { println!("!!{}", e); return },
     };
+    if debug_mode {
+        println!("--- user function ---");
+        // グローバルな関数をチェック
+        let g_scope = &parser.context.scopes.scopes[1];
+        for (_key, no) in g_scope.var_names.iter() {
+            let v: &node::NodeValue = &g_scope.var_values[*no];
+            match v {
+                node::NodeValue::SysFunc(name, _no, nodes) => {
+                    println!("●{}", name);
+                    println!("{}", node::nodes_to_string(nodes, "\n"));
+                },
+                _ => {},
+            }
+        }
+        println!("---");
+    }
     if debug_mode { println!("{}", node::nodes_to_string(&nodes, "\n")); }
     if debug_mode { println!("--- run ---"); }
     match runner::run_nodes(&mut parser.context, &nodes) {

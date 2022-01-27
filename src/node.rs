@@ -42,16 +42,16 @@ impl Node {
         match self.kind {
             NodeKind::Nop => String::from("Nop"),
             NodeKind::NodeList => format!("NodeList:{}", self.value.to_string()),
-            NodeKind::Int => format!("Int:{}", self.value.to_int(0)),
-            NodeKind::Number => format!("Number:{}", self.value.to_float(0.0)),
-            NodeKind::Bool => format!("Bool:{}", self.value.to_string()),
+            NodeKind::Int => format!("I({})", self.value.to_int(0)),
+            NodeKind::Number => format!("F({})", self.value.to_float(0.0)),
+            NodeKind::Bool => format!("B({})", self.value.to_string()),
+            NodeKind::String => format!("\"{}\"", self.value.to_string()),
             NodeKind::Comment => format!("Comment:{}", self.value.to_string()),
             NodeKind::Let => format!("Let:{}", self.value.to_string()),
             NodeKind::GetVar => format!("{}", self.value.to_string()),
             NodeKind::Operator => format!("{}", self.value.to_string()),
-            NodeKind::String => format!("\"{}\"", self.value.to_string()),
-            NodeKind::CallSysFunc => format!("CallSys:{}", self.value.to_string()),
-            NodeKind::CallUserFunc => format!("CallUser:{}", self.value.to_string()),
+            NodeKind::CallSysFunc => format!("Sys:{}", self.value.to_string()),
+            NodeKind::CallUserFunc => format!("Usr:{}", self.value.to_string()),
             NodeKind::If => format!("If:{}", self.value.to_string()),
             NodeKind::Kai => format!("N回:{}", self.value.to_string()),
             NodeKind::Break => String::from("Break"),
@@ -132,10 +132,10 @@ impl NodeValue {
             NodeValue::I(v) => format!("{}", v),
             NodeValue::F(v) => format!("{}", v),
             NodeValue::B(v) => if *v { String::from("真") } else { String::from("偽") },
-            NodeValue::LetVar(v) => format!("LetVar{}={:?}", v.var_name, v.value_node),
-            NodeValue::NodeList(nodes) => format!("NodeList:[{}]", nodes_to_string(&nodes, ",")),
-            NodeValue::Operator(op) => format!("{}[{}]", op.flag, nodes_to_string(&op.nodes, ",")),
-            NodeValue::GetVar(v) => format!("GetVar:{:?}({},{})", v.name.clone().unwrap_or(String::new()), v.level, v.no),
+            NodeValue::LetVar(v) => format!("{}={}", v.var_info.name.clone().unwrap_or(String::new()), nodes_to_string(&v.value_node, ",")),
+            NodeValue::NodeList(nodes) => format!("[{}]", nodes_to_string(&nodes, ",")),
+            NodeValue::Operator(op) => format!("({})[{}]", op.flag, nodes_to_string(&op.nodes, ",")),
+            NodeValue::GetVar(v) => format!("{}", v.name.clone().unwrap_or(String::new())),
             NodeValue::SysFunc(name, _, nodes) => format!("{}({})", name, nodes_to_string(&nodes, ",")),
             // _ => String::from(""),
         }
@@ -279,7 +279,7 @@ impl NodeValue {
 
 #[derive(Debug,Clone)]
 pub struct NodeValueLet {
-    pub var_name: String,
+    pub var_info: NodeVarInfo,
     pub value_node: Vec<Node>,
 }
 
@@ -446,7 +446,13 @@ pub enum NodeVarKind {
 pub fn nodes_to_string(nodes: &Vec<Node>, delimiter: &str) -> String {
     let mut r = String::new();
     for (i, node) in nodes.iter().enumerate() {
-        r.push_str(&node.to_string());
+        if delimiter.eq("\n") {
+            let line = format!("L{}: {}", &node.line, &node.to_string());
+            r.push_str(&line);
+        } else {
+            let line = format!("{}", &node.to_string());
+            r.push_str(&line);
+        }
         if i != (nodes.len() - 1) {
             r.push_str(delimiter);
         }

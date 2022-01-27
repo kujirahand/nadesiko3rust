@@ -48,7 +48,7 @@ pub fn run_nodes(ctx: &mut NodeContext, nodes: &Vec<Node>) -> Result<NodeValue, 
         if ctx.try_return != None { return Ok(NodeValue::Empty); }
         let cur:&Node = &nodes[index];
         if ctx.debug_mode {
-            println!("[RUN]({:02}) {}{}", index, indent_str(ctx.callstack_level-1), cur.to_string());
+            println!("[RUN:{:2}] {}{}", cur.line, indent_str(ctx.callstack_level-1), cur.to_string());
         }
         if let Some(v) = run_node(ctx, cur) { result = v; }
         index += 1;
@@ -65,6 +65,7 @@ pub fn run_return(ctx: &mut NodeContext, cur: &Node) -> NodeValue {
             let result = run_node(ctx, node).unwrap_or(NodeValue::Empty);
             ctx.scopes.set_value_local_scope("それ", result.clone());
             ctx.try_return = Some(ctx.callstack_level);
+            println!("*** RETUEN ***");
             result
         },
         _ => NodeValue::Empty,
@@ -191,6 +192,9 @@ fn run_call_userfunc(ctx: &mut NodeContext, node: &Node) -> NodeValue {
         NodeValue::SysFunc(func_name, no, nodes) => (func_name, *no, nodes),
         _ => return NodeValue::Empty,
     };
+    if ctx.debug_mode {
+        println!("[DEBUG] --- run_call_userfunc:{} ---", func_name);
+    }
     // 関数を得る
     let info = NodeVarInfo { level: 1, no: func_no, name: None };
     let func = match ctx.scopes.get_var_value(&info) { // 関数本体
@@ -230,6 +234,7 @@ fn run_call_userfunc(ctx: &mut NodeContext, node: &Node) -> NodeValue {
     ctx.return_level = ctx.callstack_level;
     match func {
         NodeValue::SysFunc(name, _no, nodes) => {
+            // println!("@@@CALL:{}", nodes_to_string(&nodes, "\n"));
             match run_nodes(ctx, &nodes) {
                 Ok(v) => v,
                 Err(e) => {
@@ -240,12 +245,13 @@ fn run_call_userfunc(ctx: &mut NodeContext, node: &Node) -> NodeValue {
         },
         _ => {},    
     };
-    let scope = ctx.scopes.pop_local().unwrap_or(NodeScope::new());
+    let func_scope = ctx.scopes.pop_local().unwrap_or(NodeScope::new());
     if let Some(_level) = ctx.try_return {
         ctx.try_return = None;
     }
     ctx.return_level = tmp_return_level;
-    let result = scope.get_var("それ");
+    let result = func_scope.get_var("それ");
+    // println!("*** 関数のスコープ={:?}", func_scope);
     ctx.scopes.set_value_local_scope("それ", result.clone());
     result
 }
@@ -257,7 +263,9 @@ fn run_let(ctx: &mut NodeContext, node: &Node) -> NodeValue {
     };
     let value_node:&Vec<Node> = &let_value.value_node;
     let value = run_nodes(ctx, value_node).unwrap_or(NodeValue::Empty);
-    ctx.scopes.set_value(1, &let_value.var_name, value.clone());
+    let info = let_value.var_info.clone();
+    let name = info.name.unwrap_or(String::new()).clone();
+    ctx.scopes.set_value(info.level, &name, value.clone());
     value
 }
 
@@ -352,7 +360,7 @@ pub fn eval_simple_str(code: &str) -> String {
 pub fn indent_str(num: usize) -> String {
     let mut s = String::new();
     for _ in 0..num {
-        s.push_str("    ");
+        s.push_str("  ");
     }
     s
 }

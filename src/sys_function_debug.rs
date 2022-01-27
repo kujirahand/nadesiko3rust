@@ -10,7 +10,7 @@ pub fn register(ctx: &mut NodeContext) {
     ctx.add_sysfunc("足", sysargs(&[&["と","に"], &["を"]]), sys_debug_add);
 }
 
-fn sys_debug_print(_: &mut NodeContext, args: Vec<NodeValue>) -> Option<NodeValue> {
+fn sys_debug_print(_ctx: &mut NodeContext, args: Vec<NodeValue>) -> Option<NodeValue> {
     let s = if args.len() > 0 { args[0].to_string() } else { String::from("<表示内容がありません>") };
     println!("[DEBUG] {}", s);
     Some(NodeValue::S(s))
