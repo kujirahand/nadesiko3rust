@@ -136,7 +136,7 @@ impl NodeValue {
             NodeValue::NodeList(nodes) => format!("[{}]", nodes_to_string(&nodes, ",")),
             NodeValue::Operator(op) => format!("({})[{}]", op.flag, nodes_to_string(&op.nodes, ",")),
             NodeValue::GetVar(v) => format!("{}", v.name.clone().unwrap_or(String::new())),
-            NodeValue::SysFunc(name, _, nodes) => format!("{}({})", name, nodes_to_string(&nodes, ",")),
+            NodeValue::SysFunc(name, no, nodes) => format!("{}:{}({})", name, no, nodes_to_string(&nodes, ",")),
             // _ => String::from(""),
         }
     }
@@ -538,7 +538,14 @@ impl NodeContext {
         self.scopes.find_var(name)
     }
     pub fn get_var_value(&self, info: &NodeVarInfo) -> Option<NodeValue> {
-        self.scopes.get_var_value(info)
+        if info.level == 2 {
+            // local
+            let local: &NodeScope = self.scopes.scopes.last().unwrap();
+            Some(local.var_values[info.no].clone())
+        } else {
+            // system or global 
+            self.scopes.get_var_value(info)
+        }
     }
     #[allow(dead_code)]
     pub fn get_var_meta(&self, info: &NodeVarInfo) -> Option<NodeVarMeta> {

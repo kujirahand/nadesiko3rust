@@ -769,10 +769,12 @@ impl Parser {
         if self.cur.eq_kind(TokenKind::ParenL) {
             args = self.read_def_func_arg();
         }
-        // 関数を登録
+        // 関数を登録 (関数はグローバル領域に確保)
         let scope = &mut self.context.scopes.scopes[1];
-        // 変数に名前を登録
-        let no = scope.set_var(&name_t.label, NodeValue::SysFunc(name_s.clone(), 0, vec![]));
+        // 変数に名前を登録 - 関数名をスコープに登録
+        let no = scope.set_var(&name_t.label, NodeValue::Empty);
+        // 関数番号をスコープに再登録(再帰呼び出しに対応)
+        scope.set_var(&name_t.label, NodeValue::SysFunc(name_s.clone(), no, vec![]));
         let mut meta = &mut scope.var_metas[no];
         meta.kind = NodeVarKind::UserFunc(args.clone());
         meta.read_only = true;

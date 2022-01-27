@@ -65,7 +65,8 @@ pub fn run_return(ctx: &mut NodeContext, cur: &Node) -> NodeValue {
             let result = run_node(ctx, node).unwrap_or(NodeValue::Empty);
             ctx.scopes.set_value_local_scope("それ", result.clone());
             ctx.try_return = Some(ctx.callstack_level);
-            println!("*** RETUEN ***");
+            // println!("*** RETUEN ***");
+            // panic!("!enter");
             result
         },
         _ => NodeValue::Empty,
@@ -192,24 +193,26 @@ fn run_call_userfunc(ctx: &mut NodeContext, node: &Node) -> NodeValue {
         NodeValue::SysFunc(func_name, no, nodes) => (func_name, *no, nodes),
         _ => return NodeValue::Empty,
     };
-    if ctx.debug_mode {
-        println!("[DEBUG] --- run_call_userfunc:{} ---", func_name);
-    }
     // 関数を得る
     let info = NodeVarInfo { level: 1, no: func_no, name: None };
-    let func = match ctx.scopes.get_var_value(&info) { // 関数本体
+    // println!("@@context:{:?}", ctx.scopes.scopes[1]);
+    // println!("@@本体:info={:?}", info);
+    let func_value = match ctx.scopes.get_var_value(&info) { // 関数本体
         Some(v) => v,
         None => return NodeValue::Empty,
     };
+    // println!("@@本体:{}", func_value.to_string());
     let meta = match ctx.scopes.get_var_meta(&info) { // メタ情報
         Some(v) => v,
         None => return NodeValue::Empty,
     };
+    // println!("@@meta:{:?}", meta);
     // 関数の引数定義を得る
-    let func_args = match meta.kind {
+    let func_args: &Vec<SysArg> = match &meta.kind {
         NodeVarKind::UserFunc(args) => args,
         _ => return NodeValue::Empty,
     };
+    // println!("@@args");
     // 関数スコープを作り、ローカル変数を登録する
     let mut scope = NodeScope::new();
     // 関数の引数を得る
@@ -232,7 +235,7 @@ fn run_call_userfunc(ctx: &mut NodeContext, node: &Node) -> NodeValue {
     ctx.scopes.push_local(scope);
     let tmp_return_level = ctx.return_level;
     ctx.return_level = ctx.callstack_level;
-    match func {
+    match func_value {
         NodeValue::SysFunc(name, _no, nodes) => {
             // println!("@@@CALL:{}", nodes_to_string(&nodes, "\n"));
             match run_nodes(ctx, &nodes) {
