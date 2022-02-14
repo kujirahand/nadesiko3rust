@@ -65,7 +65,7 @@ pub fn run_return(ctx: &mut NodeContext, cur: &Node) -> NodeValue {
             let result = run_node(ctx, node).unwrap_or(NodeValue::Empty);
             ctx.scopes.set_value_local_scope("それ", result.clone());
             ctx.try_return = Some(ctx.callstack_level);
-            // println!("*** RETUEN ***");
+            // println!("*** RETUEN *** それ={}", result.clone().to_string());
             // panic!("!enter");
             result
         },

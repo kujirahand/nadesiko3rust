@@ -789,13 +789,20 @@ impl Parser {
         }
         self.context.scopes.push_local(local_scope);
         // 関数本文ブロックを取得
-        let body_nodes = match self.get_sentence_list() {
+        let mut body_nodes = match self.get_sentence_list() {
             Ok(nodes) => nodes,
             Err(err) => {
                 self.throw_error_token(&format!("関数『{}』の定義でエラー。{}", name_t.label, err), def_t);
                 return None;
             },               
         };
+        // 「それで戻る」を最後に足す ← TODO: うまく「それ」が追加されていない
+        let sore_var = self.context.find_var_info("それ").unwrap_or(NodeVarInfo{level:2, no:0, name:None});
+        let sore_node = Node::new(NodeKind::GetVar,
+            NodeValue::GetVar(sore_var), None, name_t.line, self.fileno);
+        let ret_node = Node::new(NodeKind::Return, NodeValue::NodeList(vec![sore_node]), None, name_t.line, self.fileno);
+        body_nodes.push(ret_node);
+        // BlockEnd判定
         if self.cur.eq_kind(TokenKind::BlockEnd) {
             self.cur.next(); // skip ここまで
         }
@@ -832,7 +839,8 @@ mod test_parser {
         assert_eq!(node.kind, NodeKind::Let);
         let let_value = match &node.value {
             NodeValue::LetVar(v) => {
-                assert_eq!(*v.var_name, "aaa".to_string());
+                let name = v.var_info.clone();
+                assert_eq!(name.name.unwrap(), "aaa".to_string());
                 let node = &v.value_node[0];
                 match node.value {
                     NodeValue::I(v) => v,
