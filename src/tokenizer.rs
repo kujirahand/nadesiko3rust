@@ -18,7 +18,7 @@ pub fn tokenize(src: &str) -> Vec<Token> {
     for t in tok.into_iter() {
         if last_is_eq {
             last_is_eq = false;
-            if t.kind == TokenKind::Comma { continue; } // 「Aは,1」のような場合にカンマを飛ばす
+            if t.ttype == TokenType::Comma { continue; } // 「Aは,1」のような場合にカンマを飛ばす
         }
         match &t.josi {
             Some(j) => {
@@ -27,7 +27,7 @@ pub fn tokenize(src: &str) -> Vec<Token> {
                     let mut t2 = t.clone();
                     t2.josi = None;
                     result.push(t2);
-                    result.push(Token::new_char(TokenKind::Eq, '=', line));
+                    result.push(Token::new_char(TokenType::Eq, '=', line));
                     last_is_eq = true;
                     continue;
                 }    
@@ -49,8 +49,8 @@ pub fn tokenize_src(src: &str, line_begin: u32) -> Vec<Token> {
         let ch = cur.peek();
         match ch {
             '\n' => { result.push(read_lf(&mut cur, &mut line)); continue; },
-            ';' => { flag_push(TokenKind::Eol, &mut result, &mut cur, line); continue; },
-            ',' => { flag_push(TokenKind::Comma, &mut result, &mut cur, line); continue; },
+            ';' => { flag_push(TokenType::Eol, &mut result, &mut cur, line); continue; },
+            ',' => { flag_push(TokenType::Comma, &mut result, &mut cur, line); continue; },
             '/' => { result.push(read_slash(&mut cur, &mut line)); continue; },
             '※' => { result.push(read_linecomment(&mut cur, &mut line)); continue; },
             '#' => { result.push(read_linecomment(&mut cur, &mut line)); continue; },
@@ -60,61 +60,61 @@ pub fn tokenize_src(src: &str, line_begin: u32) -> Vec<Token> {
             '"' => { read_string(&mut result, &mut cur, &mut line, '"', true); continue; }
             '\'' => { read_string(&mut result, &mut cur, &mut line, '\'', false); continue; }
             //各種カッコ
-            '(' => { flag_push(TokenKind::ParenL, &mut result, &mut cur, line); continue; },
-            ')' => { flag_push_josi(TokenKind::ParenR, &mut result, &mut cur, line); continue; },
-            '[' => { flag_push(TokenKind::BracketL, &mut result, &mut cur, line); continue; },
-            ']' => { flag_push_josi(TokenKind::BracketR, &mut result, &mut cur, line); continue; },
-            '{' => { flag_push(TokenKind::CurBracketL, &mut result, &mut cur, line); continue; },
-            '}' => { flag_push_josi(TokenKind::CurBracketR, &mut result, &mut cur, line); continue; },
+            '(' => { flag_push(TokenType::ParenL, &mut result, &mut cur, line); continue; },
+            ')' => { flag_push_josi(TokenType::ParenR, &mut result, &mut cur, line); continue; },
+            '[' => { flag_push(TokenType::BracketL, &mut result, &mut cur, line); continue; },
+            ']' => { flag_push_josi(TokenType::BracketR, &mut result, &mut cur, line); continue; },
+            '{' => { flag_push(TokenType::CurBracketL, &mut result, &mut cur, line); continue; },
+            '}' => { flag_push_josi(TokenType::CurBracketR, &mut result, &mut cur, line); continue; },
             // 演算子
-            '+' => { flag_push(TokenKind::Plus, &mut result, &mut cur, line); continue; },
-            '-' => { flag_push(TokenKind::Minus, &mut result, &mut cur, line); continue; },
-            '*' => { flag_push(TokenKind::Mul, &mut result, &mut cur, line); continue; },
-            '×' => { flag_push_n(TokenKind::Mul, '*', &mut result, &mut cur, 1, line); continue; },
-            '÷' => { flag_push_n(TokenKind::Div, '/', &mut result, &mut cur, 1, line); continue; },
-            '%' => { flag_push(TokenKind::Mod, &mut result, &mut cur, line); continue; },
-            '^' => { flag_push(TokenKind::Pow, &mut result, &mut cur, line); continue; },
-            '\\' => { flag_push(TokenKind::Flag, &mut result, &mut cur, line); continue; },
-            '`' => { flag_push(TokenKind::Flag, &mut result, &mut cur, line); continue; },
-            '~' => { flag_push(TokenKind::Flag, &mut result, &mut cur, line); continue; },
-            '≧' => { flag_push(TokenKind::GtEq, &mut result, &mut cur, line); continue; },
-            '≦' => { flag_push(TokenKind::LtEq, &mut result, &mut cur, line); continue; },
-            '≠' => { flag_push(TokenKind::NotEq, &mut result, &mut cur, line); continue; },
-            '真' => { flag_push_josi(TokenKind::True, &mut result, &mut cur, line); continue; },
-            '偽' => { flag_push_josi(TokenKind::False, &mut result, &mut cur, line); continue; },
+            '+' => { flag_push(TokenType::Plus, &mut result, &mut cur, line); continue; },
+            '-' => { flag_push(TokenType::Minus, &mut result, &mut cur, line); continue; },
+            '*' => { flag_push(TokenType::Mul, &mut result, &mut cur, line); continue; },
+            '×' => { flag_push_n(TokenType::Mul, '*', &mut result, &mut cur, 1, line); continue; },
+            '÷' => { flag_push_n(TokenType::Div, '/', &mut result, &mut cur, 1, line); continue; },
+            '%' => { flag_push(TokenType::Mod, &mut result, &mut cur, line); continue; },
+            '^' => { flag_push(TokenType::Pow, &mut result, &mut cur, line); continue; },
+            '\\' => { flag_push(TokenType::Flag, &mut result, &mut cur, line); continue; },
+            '`' => { flag_push(TokenType::Flag, &mut result, &mut cur, line); continue; },
+            '~' => { flag_push(TokenType::Flag, &mut result, &mut cur, line); continue; },
+            '≧' => { flag_push(TokenType::GtEq, &mut result, &mut cur, line); continue; },
+            '≦' => { flag_push(TokenType::LtEq, &mut result, &mut cur, line); continue; },
+            '≠' => { flag_push(TokenType::NotEq, &mut result, &mut cur, line); continue; },
+            '真' => { flag_push_josi(TokenType::True, &mut result, &mut cur, line); continue; },
+            '偽' => { flag_push_josi(TokenType::False, &mut result, &mut cur, line); continue; },
             '=' => {
-                if cur.eq_str("==") { flag_push_n(TokenKind::Eq, '=', &mut result, &mut cur, 2, line); }
-                else { flag_push_n(TokenKind::Eq, '=', &mut result, &mut cur, 1, line); }
+                if cur.eq_str("==") { flag_push_n(TokenType::Eq, '=', &mut result, &mut cur, 2, line); }
+                else { flag_push_n(TokenType::Eq, '=', &mut result, &mut cur, 1, line); }
                 continue; 
             },
             '&' => { 
-                if cur.eq_str("&&") { flag_push_n(TokenKind::And, '&', &mut result, &mut cur, 2, line); }
-                else { flag_push_n(TokenKind::PlusStr, '結', &mut result, &mut cur, 1, line); }
+                if cur.eq_str("&&") { flag_push_n(TokenType::And, '&', &mut result, &mut cur, 2, line); }
+                else { flag_push_n(TokenType::PlusStr, '結', &mut result, &mut cur, 1, line); }
                 continue; 
             },
             '|' => { 
-                if cur.eq_str("||") { flag_push_n(TokenKind::Or, '|', &mut result, &mut cur, 2, line); }
-                else { flag_push_n(TokenKind::Or, '|', &mut result, &mut cur, 1, line); }
+                if cur.eq_str("||") { flag_push_n(TokenType::Or, '|', &mut result, &mut cur, 2, line); }
+                else { flag_push_n(TokenType::Or, '|', &mut result, &mut cur, 1, line); }
                 continue; 
             },
             '!' => {
-                if cur.eq_str("!=") { flag_push_n(TokenKind::NotEq, '≠', &mut result, &mut cur, 2, line); }
-                else { flag_push(TokenKind::Not, &mut result, &mut cur, line); }
+                if cur.eq_str("!=") { flag_push_n(TokenType::NotEq, '≠', &mut result, &mut cur, 2, line); }
+                else { flag_push(TokenType::Not, &mut result, &mut cur, line); }
                 continue; 
             },
             '>' => {
-                if cur.eq_str(">=") { flag_push_n(TokenKind::GtEq, '≧', &mut result, &mut cur, 2, line); }
-                else if cur.eq_str("><") { flag_push_n(TokenKind::NotEq, '≠', &mut result, &mut cur, 2, line); cur.next(); }
-                else { flag_push(TokenKind::Gt, &mut result, &mut cur, line); }
+                if cur.eq_str(">=") { flag_push_n(TokenType::GtEq, '≧', &mut result, &mut cur, 2, line); }
+                else if cur.eq_str("><") { flag_push_n(TokenType::NotEq, '≠', &mut result, &mut cur, 2, line); cur.next(); }
+                else { flag_push(TokenType::Gt, &mut result, &mut cur, line); }
                 continue;
             },
             '<' => {
-                if cur.eq_str("<=") { flag_push_n(TokenKind::LtEq, '≦', &mut result, &mut cur, 2, line); }
-                else if cur.eq_str("<>") { flag_push_n(TokenKind::NotEq, '≠', &mut result, &mut cur, 2, line); }
-                else { flag_push(TokenKind::Lt, &mut result, &mut cur, line); }
+                if cur.eq_str("<=") { flag_push_n(TokenType::LtEq, '≦', &mut result, &mut cur, 2, line); }
+                else if cur.eq_str("<>") { flag_push_n(TokenType::NotEq, '≠', &mut result, &mut cur, 2, line); }
+                else { flag_push(TokenType::Lt, &mut result, &mut cur, line); }
                 continue;
             },
-            '●' => { flag_push(TokenKind::DefFunc, &mut result, &mut cur, line); continue; },
+            '●' => { flag_push(TokenType::DefFunc, &mut result, &mut cur, line); continue; },
             // '!'..='.' => { flag_push(TokenKind::Flag, &mut result, &mut cur, line); continue; },
             // ':'..='@' => { flag_push(TokenKind::Flag, &mut result, &mut cur, line); continue; },
             // 数値
@@ -132,20 +132,20 @@ pub fn tokenize_src(src: &str, line_begin: u32) -> Vec<Token> {
 }
 
 // 1文字をトークンとして追加する関数
-fn flag_push(kind: TokenKind, result: &mut Vec<Token>, cur: &mut StrCur, line: u32) {
+fn flag_push(kind: TokenType, result: &mut Vec<Token>, cur: &mut StrCur, line: u32) {
     let tok = Token {
-        kind,
+        ttype: kind,
         label: String::from(cur.next()),
         josi: None,
         line,
     };
     result.push(tok);   
 }
-fn flag_push_josi(kind: TokenKind, result: &mut Vec<Token>, cur: &mut StrCur, line: u32) {
+fn flag_push_josi(kind: TokenType, result: &mut Vec<Token>, cur: &mut StrCur, line: u32) {
     let label = String::from(cur.next());
     let josi_opt = josi_list::read_josi(cur);
     let tok = Token {
-        kind,
+        ttype: kind,
         label,
         josi: josi_opt,
         line,
@@ -153,9 +153,9 @@ fn flag_push_josi(kind: TokenKind, result: &mut Vec<Token>, cur: &mut StrCur, li
     result.push(tok);   
 }
 // len文字をトークンとして追加する関数
-fn flag_push_n(kind: TokenKind, flag_ch: char, result: &mut Vec<Token>, cur: &mut StrCur, len: usize, line: u32) {
+fn flag_push_n(kind: TokenType, flag_ch: char, result: &mut Vec<Token>, cur: &mut StrCur, len: usize, line: u32) {
     let tok = Token {
-        kind,
+        ttype: kind,
         label: String::from(flag_ch),
         josi: None,
         line,
@@ -166,7 +166,7 @@ fn flag_push_n(kind: TokenKind, flag_ch: char, result: &mut Vec<Token>, cur: &mu
 
 fn read_lf(cur: &mut StrCur, line: &mut u32) -> Token {
     let lf = cur.next();
-    let t = Token::new_char(TokenKind::Eol, lf, *line);
+    let t = Token::new_char(TokenType::Eol, lf, *line);
     *line += 1;
     return t;
 }
@@ -174,7 +174,7 @@ fn read_lf(cur: &mut StrCur, line: &mut u32) -> Token {
 fn read_linecomment(cur: &mut StrCur, line: &mut u32) -> Token {
     cur.seek(1); // skip "※"
     let rem = cur.get_token_tostr('\n');
-    let tok = Token::new_str(TokenKind::Comment, &rem, *line);
+    let tok = Token::new_str(TokenType::Comment, &rem, *line);
     *line += 1;
     return tok;
 }
@@ -184,7 +184,7 @@ fn read_slash(cur: &mut StrCur, line: &mut u32) -> Token {
     if cur.eq_str("//") {
         cur.seek(2); // skip "//"
         let rem = cur.get_token_tostr('\n');
-        let tok = Token::new_str(TokenKind::Comment, &rem, *line);
+        let tok = Token::new_str(TokenType::Comment, &rem, *line);
         *line += 1;
         return tok;
     }
@@ -197,13 +197,13 @@ fn read_slash(cur: &mut StrCur, line: &mut u32) -> Token {
             if *c == '\n' { ret_cnt += 1; }
         }
         let rem_s: String = rem.iter().collect();
-        let tok = Token::new_str(TokenKind::Comment, &rem_s, *line);
+        let tok = Token::new_str(TokenType::Comment, &rem_s, *line);
         *line += ret_cnt;
         return tok;
     }
     // flag
     let flag = cur.next();
-    return Token::new_char(TokenKind::Div, flag, *line);
+    return Token::new_char(TokenType::Div, flag, *line);
 }
 
 fn read_number(cur: &mut StrCur, line: &mut u32) -> Token {
@@ -218,14 +218,14 @@ fn read_number(cur: &mut StrCur, line: &mut u32) -> Token {
         }
         let num_s: String = vc.iter().collect();
         let josi_opt = josi_list::read_josi(cur);
-        return Token::new(TokenKind::Number, num_s, josi_opt, *line);
+        return Token::new(TokenType::Number, num_s, josi_opt, *line);
     }
     let num_s: String = vc.iter().collect();
     let josi_opt = josi_list::read_josi(cur);
-    return Token::new(TokenKind::Int, num_s, josi_opt, *line);
+    return Token::new(TokenType::Int, num_s, josi_opt, *line);
 }
 
-fn check_special(result: &mut Vec<Token>, cur: &mut StrCur, word: &str, kind: TokenKind, line: u32) -> bool {
+fn check_special(result: &mut Vec<Token>, cur: &mut StrCur, word: &str, kind: TokenType, line: u32) -> bool {
     if cur.eq_str(word) {
         let len = word.chars().count();
         cur.seek(len as i32);
@@ -242,17 +242,17 @@ fn read_word(result: &mut Vec<Token>, cur: &mut StrCur, line: &mut u32) -> bool 
 
     // 特別な語句を例外で登録する
     if cur.eq_str("ここ") {        
-        if check_special(result, cur, "ここから", TokenKind::BlockBegin, *line) { return true; }
-        if check_special(result, cur, "ここまで", TokenKind::BlockEnd, *line) { return true; }
+        if check_special(result, cur, "ここから", TokenType::BlockBegin, *line) { return true; }
+        if check_special(result, cur, "ここまで", TokenType::BlockEnd, *line) { return true; }
     }
     if cur.eq_str("違") {
-        if check_special(result, cur, "違えば", TokenKind::Else, *line) { return true; }
-        if check_special(result, cur, "違うなら", TokenKind::Else, *line) { return true; }
+        if check_special(result, cur, "違えば", TokenType::Else, *line) { return true; }
+        if check_special(result, cur, "違うなら", TokenType::Else, *line) { return true; }
     }
-    if check_special(result, cur, "または", TokenKind::Or, *line) { return true; }
-    if check_special(result, cur, "あるいは", TokenKind::Or, *line) { return true; }
-    if check_special(result, cur, "もしも", TokenKind::If, *line) { return true; }
-    if check_special(result, cur, "もし", TokenKind::If, *line) { return true; }
+    if check_special(result, cur, "または", TokenType::Or, *line) { return true; }
+    if check_special(result, cur, "あるいは", TokenType::Or, *line) { return true; }
+    if check_special(result, cur, "もしも", TokenType::If, *line) { return true; }
+    if check_special(result, cur, "もし", TokenType::If, *line) { return true; }
     
     // ひらがなスタートなら1文字目は助詞にならない
     if kanautils::is_hiragana(cur.peek()) {
@@ -293,7 +293,7 @@ fn read_word(result: &mut Vec<Token>, cur: &mut StrCur, line: &mut u32) -> bool 
     }
     //　回を追加
     if has_kai {
-        let kai_tok = Token::new(TokenKind::Kai, String::from("回"), None, *line);
+        let kai_tok = Token::new(TokenType::Kai, String::from("回"), None, *line);
         result.push(kai_tok);
     }
     true
@@ -346,7 +346,7 @@ fn read_string(result: &mut Vec<Token>, cur: &mut StrCur, line: &mut u32, end_fl
     if ex_str {
         extract_string_ex(result, label, josi_opt, line_begin);
     } else {
-        let tok = Token::new(TokenKind::String, label, josi_opt, line_begin);
+        let tok = Token::new(TokenType::String, label, josi_opt, line_begin);
         result.push(tok);
     }
 }
@@ -360,13 +360,13 @@ fn extract_string_ex(result: &mut Vec<Token>, src: String, josi_opt:Option<Strin
             if c == '}' || c == '｝' {
                 let list = tokenize_src(&code, line);
                 if list.len() > 0 {
-                    result.push(Token::new(TokenKind::PlusStr, String::from("結"), None, line));
-                    result.push(Token::new(TokenKind::ParenL, String::from("("), None, line));
+                    result.push(Token::new(TokenType::PlusStr, String::from("結"), None, line));
+                    result.push(Token::new(TokenType::ParenL, String::from("("), None, line));
                     for t in list.into_iter() {
                         result.push(t);
                     }
-                    result.push(Token::new(TokenKind::ParenR, String::from(")"), None, line));
-                    result.push(Token::new(TokenKind::PlusStr, String::from("結"), None, line));
+                    result.push(Token::new(TokenType::ParenR, String::from(")"), None, line));
+                    result.push(Token::new(TokenType::PlusStr, String::from("結"), None, line));
                     is_extract = false;
                 }
                 continue;
@@ -376,13 +376,13 @@ fn extract_string_ex(result: &mut Vec<Token>, src: String, josi_opt:Option<Strin
         }
         if c == '{' || c == '｛' {
             is_extract = true;
-            result.push(Token::new(TokenKind::String, data, None, line));
+            result.push(Token::new(TokenType::String, data, None, line));
             data = String::new();
             continue;
         }
         data.push(c);
     }
-    result.push(Token::new(TokenKind::String, data, josi_opt.clone(), line));
+    result.push(Token::new(TokenType::String, data, josi_opt.clone(), line));
 }
 
 
