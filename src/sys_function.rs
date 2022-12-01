@@ -21,6 +21,10 @@ pub fn register(ctx: &mut NodeContext) {
     ctx.add_sysfunc("超", sysargs(&[&["が"], &[""]]), sys_gt);
     ctx.add_sysfunc("未満", sysargs(&[&["が"], &[""]]), sys_lt);
     ctx.add_sysfunc("等", sysargs(&[&["が"], &["と"]]), sys_eq);
+    ctx.add_sysfunc("範囲内", sysargs(&[&["が"], &["から"], &["の", "までの"]]), sys_eq);
+    // 型変換
+    ctx.add_sysfunc("TYPEOF", sysargs(&[&["の"]]), sys_typeof);
+    ctx.add_sysfunc("変数型確認", sysargs(&[&["の"]]), sys_typeof);
     // 定数
     ctx.add_sysconst("永遠", NodeValue::B(true));
     ctx.add_sysconst("オン", NodeValue::B(true));
@@ -132,6 +136,18 @@ fn sys_eq(_: &mut NodeContext, args: Vec<NodeValue>) -> Option<NodeValue> {
     let res = NodeValue::calc_eq(a, b);
     Some(res)
 }
+fn sys_typeof(_: &mut NodeContext, args: Vec<NodeValue>) -> Option<NodeValue> {
+    let a = &args[0];
+    let s = match a {
+        NodeValue::B(_) => { "B" },
+        NodeValue::I(_) => { "I" },
+        NodeValue::F(_) => { "F" },
+        NodeValue::S(_) => { "S" },
+        _ => { "?" },
+    };
+    Some(NodeValue::from_str(s))
+}
+
 
 
 #[cfg(test)]
@@ -159,5 +175,14 @@ mod test_runner {
     fn test_const() {
         let res = eval_str("カッコを表示");
         assert_eq!(res, "「");
+    }
+    #[test]
+    fn test_typeof() {
+        let res = eval_str("「あ」の変数型確認して表示");
+        assert_eq!(res, "S");
+        let res = eval_str("3の変数型確認して表示");
+        assert_eq!(res, "I");
+        let res = eval_str("3.0の変数型確認して表示");
+        assert_eq!(res, "F");
     }
 }
