@@ -129,6 +129,7 @@ impl Parser {
         while self.cur.can_read() {
             if self.cur.eq_type(TokenType::Eol) { break; }
             if !self.check_value() { break; }
+            if self.cur.eq_type(TokenType::Dainyu) { return self.check_dainyu(); }
             // call function?
             if self.stack_last_eq(NodeKind::CallSysFunc) || self.stack_last_eq(NodeKind::CallUserFunc) {
                 let callfunc = self.stack.pop().unwrap();
@@ -164,7 +165,7 @@ impl Parser {
         }
         None
     }
-
+    
     fn check_for(&mut self) -> Option<Node> {
         let kai_t = self.cur.next(); // skip 繰り返す
         
@@ -450,6 +451,23 @@ impl Parser {
     }
 
     fn check_let(&mut self) -> Option<Node> {
+        // '変数' がある?
+        if self.cur.eq_type(TokenType::DefVar) {
+            let dainyu = self.cur.peek();
+            self.cur.next();
+            if self.cur.peek_type() != TokenType::Word {
+                self.throw_error(format!("『変数の(変数名)』の書式で変数を宣言してください。"), dainyu.line);
+                return None;
+            }
+            // only define local variables
+            let word: Token = self.cur.peek();
+            self.context.scopes.set_value_local_scope(&word.label, NodeValue::Empty);
+            if !self.cur.eq_kinds(&[TokenType::Word, TokenType::Eq]) {
+                self.cur.next();
+                return None; 
+            }
+        }
+        // 代入文か?
         if !self.cur.eq_kinds(&[TokenType::Word, TokenType::Eq]) { return None; }
         let word: Token = self.cur.next();
         self.cur.next(); // eq
@@ -466,10 +484,12 @@ impl Parser {
             },
             Some(node) => node,
         };
+        // -------------------
         // todo: 配列の代入
+        // -------------------
         // ローカルに変数があるか？
         let var_name = &word.label;
-        let mut var_info = match self.context.find_var_info(&var_name) {
+        let mut var_info:NodeVarInfo = match self.context.find_var_info(&var_name) {
             Some(info) => info,
             None => {
                 // グローバル変数を生成
@@ -480,6 +500,7 @@ impl Parser {
         };
         // 値を得る
         var_info.name = Some(var_name.clone());
+        // println!("let:{:?}", var_info);
         let node_value_let = NodeValueLet {
             var_info,
             value_node: vec![value],
@@ -488,6 +509,45 @@ impl Parser {
             NodeKind::Let, 
             NodeValue::LetVar(node_value_let),
             None, word.line, self.fileno);
+        Some(let_node)
+    }
+
+    fn check_dainyu(&mut self) -> Option<Node> {
+        // VALUE{a}をVAR{b}(に|へ)代入
+        let dainyu = self.cur.peek();
+        self.cur.next();
+        let value_node: Node;
+        let var_node: Node;
+        let b = self.stack.pop().unwrap_or(Node::new_nop());
+        let a = self.stack.pop().unwrap_or(Node::new_nop());
+        if b.eq_josi("に") || b.eq_josi("へ") {
+            var_node = b;
+            value_node = a;
+        } else {
+            var_node = a;
+            value_node = b;
+        }
+        // get variable name
+        let var_name = if var_node.kind == NodeKind::GetVar {
+            match var_node.value {
+                NodeValue::GetVar(v) => { v.name.unwrap_or("それ".to_string()) },
+                _ => { "それ".to_string() }
+            }
+        } else { String::from("それ") };
+        // println!("{}に{:?}を代入", var_name, value_node);
+        let mut var_info:NodeVarInfo = match self.context.find_var_info(&var_name) {
+            Some(v) => v,
+            None => {
+                self.context.scopes.set_value(1, &var_name, NodeValue::Empty);
+                NodeVarInfo{level:1, no:0, name: Some(String::from("それ"))}
+            }
+        };
+        var_info.name = Some(var_name);
+        let node_value_let = NodeValueLet{var_info, value_node: vec![value_node]};
+        let let_node = Node::new(
+            NodeKind::Let, 
+            NodeValue::LetVar(node_value_let), 
+            None, dainyu.line, self.fileno);
         Some(let_node)
     }
 

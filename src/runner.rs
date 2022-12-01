@@ -267,7 +267,9 @@ fn run_let(ctx: &mut NodeContext, node: &Node) -> NodeValue {
     let value_node:&Vec<Node> = &let_value.value_node;
     let value = run_nodes(ctx, value_node).unwrap_or(NodeValue::Empty);
     let info = let_value.var_info.clone();
+    // let level = info.level;
     let name = info.name.unwrap_or(String::new()).clone();
+    // println!("- let {}:L{}={:?}", name, level, value);
     ctx.scopes.set_value(info.level, &name, value.clone());
     value
 }
@@ -277,7 +279,9 @@ fn run_get_var(ctx: &mut NodeContext, node: &Node) -> Option<NodeValue> {
         NodeValue::GetVar(ref var_info) => var_info,
         _ => return None,
     };
-    ctx.get_var_value(var_info)
+    let v = ctx.get_var_value(var_info);
+    // println!("- get {:?} = {:?}", var_info, v);
+    return v;
 }
 
 fn run_operator(ctx: &mut NodeContext, node: &Node) -> NodeValue {

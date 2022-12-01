@@ -313,8 +313,12 @@ impl NodeScopeList {
         // generate system and global
         let sys_scope = NodeScope::new();
         let user_global = NodeScope::new();
+        // 0: SYSTEM / 1: USER_GLOBAL / 2: LOCAL ...
         let scopes = vec![sys_scope, user_global];
         Self { scopes }
+    }
+    pub fn len(&self) -> usize {
+        self.scopes.len()
     }
     pub fn push_local(&mut self, scope: NodeScope) -> usize {
         self.scopes.push(scope);
@@ -342,9 +346,13 @@ impl NodeScopeList {
         None
     }
     pub fn set_value(&mut self, level: usize, name: &str, value: NodeValue) -> usize {
-        while self.scopes.len() <= level {
-            self.scopes.push(NodeScope::new());
-        }
+        // local or global
+        let level = if level >= 2 {
+            while self.scopes.len() <= 2 {
+                self.scopes.push(NodeScope::new());
+            }
+            self.scopes.len() - 1
+        } else { level };
         let scope = &mut self.scopes[level];
         scope.set_var(name, value)
     }
@@ -538,10 +546,14 @@ impl NodeContext {
         self.scopes.find_var(name)
     }
     pub fn get_var_value(&self, info: &NodeVarInfo) -> Option<NodeValue> {
-        if info.level == 2 {
+        if info.level >= 2 {
             // local
             let local: &NodeScope = self.scopes.scopes.last().unwrap();
-            Some(local.var_values[info.no].clone())
+            if local.var_values.len() > info.no {
+                return Some(local.var_values[info.no].clone())
+            } else {
+                return None;
+            }
         } else {
             // system or global 
             self.scopes.get_var_value(info)

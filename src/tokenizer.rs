@@ -260,7 +260,7 @@ fn read_word(result: &mut Vec<Token>, cur: &mut StrCur, line: &mut u32) -> bool 
     if check_special(result, cur, "あるいは", TokenType::Or, *line) { return true; }
     if check_special(result, cur, "もしも", TokenType::If, *line) { return true; }
     if check_special(result, cur, "もし", TokenType::If, *line) { return true; }
-    
+
     // ひらがなスタートなら1文字目は助詞にならない
     if kanautils::is_hiragana(cur.peek()) {
         word.push(cur.next());

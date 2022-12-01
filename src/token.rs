@@ -46,6 +46,8 @@ pub enum TokenType {
     For,
     DefFunc,
     Return,
+    DefVar,
+    Dainyu,
 }
 
 /// トークンを表現する構造体
@@ -139,6 +141,8 @@ impl std::fmt::Display for Token {
             TokenType::For => String::from("繰返"),
             TokenType::DefFunc => String::from("●関数"),
             TokenType::Return => String::from("戻"),
+            TokenType::DefVar => String::from("変数"),
+            TokenType::Dainyu => String::from("代入"),
             // _ => format!("{:?}", self),
         };
         write!(f, "{}", s)

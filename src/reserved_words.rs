@@ -17,6 +17,8 @@ pub fn check_kind(s: &str) -> TokenType {
     if s == "続" { return TokenType::Continue; }
     if s == "繰返" { return TokenType::For; }
     if s == "戻" { return TokenType::Return; }
+    if s == "変数" { return TokenType::DefVar; }
+    if s == "代入" { return TokenType::Dainyu; }
     // todo
     TokenType::Word
 }
