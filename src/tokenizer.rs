@@ -49,7 +49,13 @@ pub fn tokenize_src(src: &str, line_begin: u32) -> Vec<Token> {
         let ch = cur.peek();
         match ch {
             '\n' => { result.push(read_lf(&mut cur, &mut line)); continue; },
-            ';' => { flag_push(TokenType::Eol, &mut result, &mut cur, line); continue; },
+            ';' => {
+                if cur.eq_str(";;;") {
+                    flag_push_n(TokenType::BlockEnd, ';', &mut result, &mut cur, 3, line);
+                    continue;
+                }
+                flag_push(TokenType::Eol, &mut result, &mut cur, line); continue; 
+            },
             ',' => { flag_push(TokenType::Comma, &mut result, &mut cur, line); continue; },
             '/' => { result.push(read_slash(&mut cur, &mut line)); continue; },
             '※' => { result.push(read_linecomment(&mut cur, &mut line)); continue; },
