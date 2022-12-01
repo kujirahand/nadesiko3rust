@@ -25,6 +25,10 @@ pub fn register(ctx: &mut NodeContext) {
     // 型変換
     ctx.add_sysfunc("TYPEOF", sysargs(&[&["の"]]), sys_typeof);
     ctx.add_sysfunc("変数型確認", sysargs(&[&["の"]]), sys_typeof);
+    ctx.add_sysfunc("INT", sysargs(&[&["の"]]), sys_toint);
+    ctx.add_sysfunc("FLOAT", sysargs(&[&["の"]]), sys_tofloat);
+    ctx.add_sysfunc("HEX", sysargs(&[&["の"]]), sys_hex);
+    ctx.add_sysfunc("二進", sysargs(&[&["の"]]), sys_bin);
     // 定数
     ctx.add_sysconst("永遠", NodeValue::B(true));
     ctx.add_sysconst("オン", NodeValue::B(true));
@@ -147,8 +151,22 @@ fn sys_typeof(_: &mut NodeContext, args: Vec<NodeValue>) -> Option<NodeValue> {
     };
     Some(NodeValue::from_str(s))
 }
-
-
+fn sys_toint(_: &mut NodeContext, args: Vec<NodeValue>) -> Option<NodeValue> {
+    let a = &args[0];
+    Some(NodeValue::I(a.to_int(0)))
+}
+fn sys_tofloat(_: &mut NodeContext, args: Vec<NodeValue>) -> Option<NodeValue> {
+    let a = &args[0];
+    Some(NodeValue::F(a.to_float(0.0)))
+}
+fn sys_hex(_: &mut NodeContext, args: Vec<NodeValue>) -> Option<NodeValue> {
+    let a = &args[0];
+    Some(NodeValue::S(format!("{:X}", a.to_int(0))))
+}
+fn sys_bin(_: &mut NodeContext, args: Vec<NodeValue>) -> Option<NodeValue> {
+    let a = &args[0];
+    Some(NodeValue::S(format!("{:b}", a.to_int(0))))
+}
 
 #[cfg(test)]
 mod test_runner {
@@ -184,5 +202,9 @@ mod test_runner {
         assert_eq!(res, "I");
         let res = eval_str("3.0の変数型確認して表示");
         assert_eq!(res, "F");
+        let res = eval_str("255のHEXを表示");
+        assert_eq!(res, "FF");
+        let res = eval_str("255の二進を表示");
+        assert_eq!(res, "11111111");
     }
 }
