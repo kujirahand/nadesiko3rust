@@ -125,6 +125,9 @@ pub enum NodeValue {
     SysFunc(String, usize, Vec<Node>), // 関数(FuncNo, Args) CallFuncNo link to context.CallFuncs[FuncNo]
 }
 impl NodeValue {
+    pub fn from_str(v: &str) -> Self {
+        Self::S(v.to_string())
+    }
     pub fn to_string(&self) -> String {
         match self {
             NodeValue::Empty => String::from(""),
@@ -443,6 +446,7 @@ pub struct NodeValueOperator {
 #[derive(Debug, Clone, PartialEq)]
 pub enum NodeVarKind {
     Empty,
+    Bool,
     Number,
     String,
     SysFunc(Vec<SysArg>),
@@ -575,6 +579,26 @@ impl NodeContext {
         scope.var_metas[no].read_only = true;
         scope.var_metas[no].kind = NodeVarKind::SysFunc(args);
         sys_no     
+    }
+    pub fn add_sysvar(&mut self, name: &str, value: NodeValue) -> usize {
+        let no = self.add_sysconst(name, value);
+        let scope = &mut self.scopes.scopes[0];
+        scope.var_metas[no].read_only = false;
+        no
+    }
+    pub fn add_sysconst(&mut self, name: &str, value: NodeValue) -> usize {
+        let kind =  match &value {
+            NodeValue::B(_) => { NodeVarKind::Bool },
+            NodeValue::S(_) => { NodeVarKind::String },
+            NodeValue::I(_) => { NodeVarKind::Number },
+            NodeValue::F(_) => { NodeVarKind::Number },
+            _ => { NodeVarKind::Empty }
+        };
+        let scope = &mut self.scopes.scopes[0];
+        let no = scope.set_var(name, value);
+        scope.var_metas[no].read_only = true;
+        scope.var_metas[no].kind = kind;
+        no
     }
 }
 
