@@ -465,4 +465,12 @@ mod test_runner {
         let res = eval_str("5*2+2+3を表示。");
         assert_eq!(res, "15");
     }
+
+    #[test]
+    fn test_dainyu() {
+        let res = eval_str("10をAに代入。Aを表示。");
+        assert_eq!(res, "10");
+        let res = eval_str("5*3をAに代入。Aを表示。");
+        assert_eq!(res, "15");
+    }
 }
