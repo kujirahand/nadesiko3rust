@@ -549,7 +549,7 @@ impl Parser {
         // 値を得る
         var_info.name = Some(var_name.clone());
         // println!("let:{:?}", var_info);
-        let node_value_let = NodeValueLet {
+        let node_value_let = NodeValueParamLet {
             var_info,
             value_node: vec![value],
         };
@@ -591,7 +591,7 @@ impl Parser {
             }
         };
         var_info.name = Some(var_name);
-        let node_value_let = NodeValueLet{var_info, value_node: vec![value_node]};
+        let node_value_let = NodeValueParamLet{var_info, value_node: vec![value_node]};
         let let_node = Node::new(
             NodeKind::Let, 
             NodeValue::LetVar(node_value_let), 
@@ -747,19 +747,19 @@ impl Parser {
                 // 関数呼び出しかどうか調べる
                 match value {
                     // 関数呼び出しノードを作る
-                    NodeValue::SysFunc(name, no, _) => {
+                    NodeValue::CallFunc(name, no, _) => {
                         match meta.kind {
                             NodeVarKind::SysFunc(args) => {
                                 let nodes = self.read_func_args(&name, args, word_t.line);
                                 let sys_func_node = Node::new(
-                                    NodeKind::CallSysFunc, NodeValue::SysFunc(name, no, nodes), 
+                                    NodeKind::CallSysFunc, NodeValue::CallFunc(name, no, nodes), 
                                     word_t.josi, word_t.line, self.fileno);
                                 sys_func_node
                             },
                             NodeVarKind::UserFunc(args) => {
                                 let nodes = self.read_func_args(&name, args, word_t.line);
                                 let user_func_node = Node::new(
-                                    NodeKind::CallUserFunc, NodeValue::SysFunc(name, no, nodes), 
+                                    NodeKind::CallUserFunc, NodeValue::CallFunc(name, no, nodes), 
                                     word_t.josi, word_t.line, self.fileno);
                                     user_func_node
                             },
@@ -836,7 +836,7 @@ impl Parser {
                         op_t.line, self.fileno);
                     self.stack.push(new_node);
                 },
-                NodeValue::SysFunc(name, no, nodes) => {
+                NodeValue::CallFunc(name, no, nodes) => {
                     let value_b = nodes.remove(0);
                     let op_node = Node::new_operator(
                         cur_flag,
@@ -845,7 +845,7 @@ impl Parser {
                         c_josi,
                         op_t.line, self.fileno);
                     nodes.insert(0, op_node);
-                    value_bc.value = NodeValue::SysFunc(name.clone(), *no, nodes.clone());
+                    value_bc.value = NodeValue::CallFunc(name.clone(), *no, nodes.clone());
                     self.stack.push(value_bc);
                 },
                 _ => { self.throw_error_token("計算式のエラー(演算子の入れ替えに失敗)", op_t); return false; }
@@ -919,7 +919,7 @@ impl Parser {
         // 変数に名前を登録 - 関数名をスコープに登録
         let no = scope.set_var(&name_t.label, NodeValue::Empty);
         // 関数番号をスコープに再登録(再帰呼び出しに対応)
-        scope.set_var(&name_t.label, NodeValue::SysFunc(name_s.clone(), no, vec![]));
+        scope.set_var(&name_t.label, NodeValue::CallFunc(name_s.clone(), no, vec![]));
         let mut meta = &mut scope.var_metas[no];
         meta.kind = NodeVarKind::UserFunc(args.clone());
         meta.read_only = true;
@@ -954,7 +954,7 @@ impl Parser {
         // ローカルスコープから抜ける
         self.context.scopes.pop_local();
         // 関数本体を変数に登録
-        let func_value: NodeValue = NodeValue::SysFunc(name_s.clone(), no, body_nodes);
+        let func_value: NodeValue = NodeValue::CallFunc(name_s.clone(), no, body_nodes);
         self.context.scopes.set_value(1, &name_s, func_value);
         Some(Node::new(NodeKind::Comment, NodeValue::S(format!("関数『{}』の定義", name_s)), None, def_t.line, self.fileno))
     }

@@ -78,7 +78,7 @@ fn compile_and_run(src: &str, fname: &str, debug_mode: bool) {
         for (_key, no) in g_scope.var_names.iter() {
             let v: &node::NodeValue = &g_scope.var_values[*no];
             match v {
-                node::NodeValue::SysFunc(name, _no, nodes) => {
+                node::NodeValue::CallFunc(name, _no, nodes) => {
                     println!("●{}", name);
                     println!("{}", node::nodes_to_string(nodes, "\n"));
                 },

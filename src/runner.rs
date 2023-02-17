@@ -161,7 +161,7 @@ pub fn run_if(ctx: &mut NodeContext, cur: &Node) -> Option<NodeValue> {
 fn run_call_sysfunc(ctx: &mut NodeContext, node: &Node) -> NodeValue {
     let mut args: Vec<NodeValue> = vec![];
     let func_no = match &node.value {
-        NodeValue::SysFunc(func_name, no, nodes) => {
+        NodeValue::CallFunc(func_name, no, nodes) => {
             for n in nodes.iter() {
                 let v = match run_nodes(ctx, &vec![n.clone()]) {
                     Ok(v) => v,
@@ -193,7 +193,7 @@ fn run_call_sysfunc(ctx: &mut NodeContext, node: &Node) -> NodeValue {
 fn run_call_userfunc(ctx: &mut NodeContext, node: &Node) -> NodeValue {
     // 関数呼び出しの引数を得る
     let (func_name, func_no, arg_nodes) = match &node.value {
-        NodeValue::SysFunc(func_name, no, nodes) => (func_name, *no, nodes),
+        NodeValue::CallFunc(func_name, no, nodes) => (func_name, *no, nodes),
         _ => return NodeValue::Empty,
     };
     // 関数を得る
@@ -239,7 +239,7 @@ fn run_call_userfunc(ctx: &mut NodeContext, node: &Node) -> NodeValue {
     let tmp_return_level = ctx.return_level;
     ctx.return_level = ctx.callstack_level;
     match func_value {
-        NodeValue::SysFunc(name, _no, nodes) => {
+        NodeValue::CallFunc(name, _no, nodes) => {
             // println!("@@@CALL:{}", nodes_to_string(&nodes, "\n"));
             match run_nodes(ctx, &nodes) {
                 Ok(v) => v,
@@ -263,7 +263,7 @@ fn run_call_userfunc(ctx: &mut NodeContext, node: &Node) -> NodeValue {
 }
 
 fn run_let(ctx: &mut NodeContext, node: &Node) -> NodeValue {
-    let let_value: &NodeValueLet = match &node.value {
+    let let_value: &NodeValueParamLet = match &node.value {
         NodeValue::LetVar(ref let_value) => let_value,
         _ => return NodeValue::Empty,
     };

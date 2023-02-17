@@ -1,7 +1,5 @@
 //! 構文解析後のノードを定義
-
 use std::collections::HashMap;
-
 
 /// ノードの種類
 #[allow(dead_code)]
@@ -83,7 +81,7 @@ impl Node {
     pub fn new_operator(operator: char, node_l: Node, node_r: Node, josi: Option<String>, line: u32, fileno: u32) -> Self {
         Node::new(
             NodeKind::Operator, 
-            NodeValue::Operator(NodeValueOperator {
+            NodeValue::Operator(NodeValueParamOperator {
                 flag: operator,
                 nodes: vec![node_l, node_r],
             }),
@@ -127,10 +125,10 @@ pub enum NodeValue {
     B(bool),
     A(Vec<NodeValue>),
     NodeList(Vec<Node>),
-    LetVar(NodeValueLet),
+    LetVar(NodeValueParamLet),
     GetVar(NodeVarInfo),
-    Operator(NodeValueOperator),
-    SysFunc(String, usize, Vec<Node>), // 関数(FuncNo, Args) CallFuncNo link to context.CallFuncs[FuncNo]
+    Operator(NodeValueParamOperator),
+    CallFunc(String, usize, Vec<Node>), // 関数(FuncNo, Args) CallFuncNo link to context.CallFuncs[FuncNo]
 }
 impl NodeValue {
     pub fn from_str(v: &str) -> Self {
@@ -148,7 +146,7 @@ impl NodeValue {
             NodeValue::NodeList(nodes) => format!("[{}]", nodes_to_string(&nodes, ",")),
             NodeValue::Operator(op) => format!("({})[{}]", op.flag, nodes_to_string(&op.nodes, ",")),
             NodeValue::GetVar(v) => format!("{}", v.name.clone().unwrap_or(String::new())),
-            NodeValue::SysFunc(name, no, nodes) => format!("{}:{}({})", name, no, nodes_to_string(&nodes, ",")),
+            NodeValue::CallFunc(name, no, nodes) => format!("{}:{}({})", name, no, nodes_to_string(&nodes, ",")),
             // _ => String::from(""),
         }
     }
@@ -167,7 +165,7 @@ impl NodeValue {
             NodeValue::S(v) => v.parse().unwrap_or(def_value),
             NodeValue::I(v) => *v,
             NodeValue::F(v) => *v as isize,
-            NodeValue::SysFunc(_, v, _) => *v as isize,
+            NodeValue::CallFunc(_, v, _) => *v as isize,
             NodeValue::B(v) => if *v { TRUE_VALUE } else { FALSE_VALUE },
             _ => def_value,
         }
@@ -300,7 +298,7 @@ impl NodeValue {
 }
 
 #[derive(Debug,Clone)]
-pub struct NodeValueLet {
+pub struct NodeValueParamLet {
     pub var_info: NodeVarInfo,
     pub value_node: Vec<Node>,
 }
@@ -456,7 +454,7 @@ impl NodeScope {
 }
 
 #[derive(Debug,Clone)]
-pub struct NodeValueOperator {
+pub struct NodeValueParamOperator {
     pub flag: char,
     pub nodes: Vec<Node>,
 }
@@ -594,7 +592,7 @@ impl NodeContext {
         self.sysfuncs.push(sfi);
         // add name to scope
         let scope = &mut self.scopes.scopes[0];
-        let no = scope.set_var(name, NodeValue::SysFunc(String::from(name), sys_no, vec![]));
+        let no = scope.set_var(name, NodeValue::CallFunc(String::from(name), sys_no, vec![]));
         scope.var_metas[no].read_only = true;
         scope.var_metas[no].kind = NodeVarKind::SysFunc(args);
         sys_no     
