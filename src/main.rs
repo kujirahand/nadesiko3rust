@@ -23,6 +23,7 @@ fn main() {
         }
         // [memo] cargo run でもevalモードが使えるように「-」なしのモード
         if arg.eq("e") || arg.eq("eval") { eval_mode = true; continue; }
+        if arg.eq("d") || arg.eq("debug") { debug_mode = true; continue; }
         if eval_mode {
             src = arg;
             continue;

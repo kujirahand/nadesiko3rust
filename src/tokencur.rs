@@ -31,54 +31,54 @@ impl TokenCur {
         self.index = index2 as usize;
     }
 
-    pub fn eq_type(&self, kind: TokenType) -> bool {
-        self.peek_type() == kind
+    pub fn ek_kind(&self, kind: TokenKind) -> bool {
+        self.peek_kind() == kind
     }
 
-    pub fn peek_type(&self) -> TokenType {
-        if !self.can_read() { return TokenType::None; }
+    pub fn peek_kind(&self) -> TokenKind {
+        if !self.can_read() { return TokenKind::None; }
         let t = &self.tokens[self.index];
-        t.ttype
+        t.kind
     }
 
     pub fn eq_operator(&self) -> bool {
-        let k = self.peek_type();
+        let k = self.peek_kind();
         match k {
-            TokenType::PlusStr |
-            TokenType::Plus | TokenType::Minus | TokenType::Mul | 
-            TokenType::Div | TokenType::Mod | TokenType::Pow |
-            TokenType::Eq | TokenType::Not | TokenType::Gt | TokenType::GtEq |
-            TokenType::Lt | TokenType::LtEq | 
-            TokenType::And | TokenType::Or => true,
+            TokenKind::PlusStr |
+            TokenKind::Plus | TokenKind::Minus | TokenKind::Mul | 
+            TokenKind::Div | TokenKind::Mod | TokenKind::Pow |
+            TokenKind::Eq | TokenKind::Not | TokenKind::Gt | TokenKind::GtEq |
+            TokenKind::Lt | TokenKind::LtEq | 
+            TokenKind::And | TokenKind::Or => true,
             _ => false,
         }
     }
 
     pub fn peek(&self) -> Token {
-        if !self.can_read() { return Token::new_str(TokenType::None, "", 0); }
+        if !self.can_read() { return Token::new_str(TokenKind::None, "", 0); }
         let t = &self.tokens[self.index];
         t.clone()
     }
 
     pub fn next(&mut self) -> Token {
-        if !self.can_read() { return Token::new_str(TokenType::None, "", 0); }
+        if !self.can_read() { return Token::new_str(TokenKind::None, "", 0); }
         let t = &self.tokens[self.index];
         self.index += 1;
         t.clone()
     }
 
-    pub fn next_kind(&mut self) -> TokenType {
-        if !self.can_read() { return TokenType::None; }
+    pub fn next_kind(&mut self) -> TokenKind {
+        if !self.can_read() { return TokenKind::None; }
         let t = &self.tokens[self.index];
         self.index += 1;
-        t.ttype
+        t.kind
     }
 
-    pub fn eq_kinds(&self, kinds: &[TokenType]) -> bool {
+    pub fn eq_kinds(&self, kinds: &[TokenKind]) -> bool {
         for (i, k) in kinds.iter().enumerate() {
             let idx = self.index + i;
             if idx >= self.length { return false; }
-            let k2 = self.tokens[idx].ttype;
+            let k2 = self.tokens[idx].kind;
             if *k != k2 { return false; }
         }
         true
@@ -93,12 +93,12 @@ mod test_tokencur {
     fn test_tokencur1() {
         let t = tokenizer::tokenize("123 'abc'");
         let cur = TokenCur::new(t);
-        assert_eq!(cur.peek_type(), TokenType::Int);
-        assert_eq!(cur.eq_kinds(&[TokenType::Int, TokenType::String]), true);
+        assert_eq!(cur.peek_kind(), TokenKind::Int);
+        assert_eq!(cur.eq_kinds(&[TokenKind::Int, TokenKind::String]), true);
         //
         let t = tokenizer::tokenize("123回");
         let mut cur = TokenCur::new(t);
-        assert_eq!(cur.next_kind(), TokenType::Int);
-        assert_eq!(cur.next_kind(), TokenType::Kai);
+        assert_eq!(cur.next_kind(), TokenKind::Int);
+        assert_eq!(cur.next_kind(), TokenKind::Kai);
     }
 }

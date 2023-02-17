@@ -25,6 +25,9 @@ pub enum NodeKind {
     Continue,
     Return,
     For,
+    ArrayCreate,
+    ArrayRef,
+    ArrayLet,
 }
 
 /// ノード構造体
@@ -58,9 +61,13 @@ impl Node {
             NodeKind::Continue => String::from("Continue"),
             NodeKind::For => String::from("For"),
             NodeKind::Return => format!("戻る:{}", self.value.to_string()),
+            NodeKind::ArrayCreate => format!("配列生成"),
+            NodeKind::ArrayRef => format!("配列参照"),
+            NodeKind::ArrayLet => format!("配列代入"),
             // _ => format!("{:?}", self.kind),
         }
     }
+    /// 新規ノードを作成
     pub fn new(kind: NodeKind, value: NodeValue, josi: Option<String>, line: u32, fileno: u32) -> Self {
         Self {
             kind,
@@ -118,6 +125,7 @@ pub enum NodeValue {
     I(isize),
     F(f64),
     B(bool),
+    A(Vec<NodeValue>),
     NodeList(Vec<Node>),
     LetVar(NodeValueLet),
     GetVar(NodeVarInfo),
@@ -135,6 +143,7 @@ impl NodeValue {
             NodeValue::I(v) => format!("{}", v),
             NodeValue::F(v) => format!("{}", v),
             NodeValue::B(v) => if *v { String::from("真") } else { String::from("偽") },
+            NodeValue::A(v) => format!("A[len({})]", v.len()),
             NodeValue::LetVar(v) => format!("{}={}", v.var_info.name.clone().unwrap_or(String::new()), nodes_to_string(&v.value_node, ",")),
             NodeValue::NodeList(nodes) => format!("[{}]", nodes_to_string(&nodes, ",")),
             NodeValue::Operator(op) => format!("({})[{}]", op.flag, nodes_to_string(&op.nodes, ",")),
@@ -177,6 +186,16 @@ impl NodeValue {
         match self {
             NodeValue::NodeList(nodes) => return nodes.clone(),
             _ => vec![],
+        }
+    }
+    pub fn get_array_index(&self, index: usize) -> Option<NodeValue> {
+        return match self {
+            NodeValue::A(nlist) => {
+                println!("@@@has_array_value");
+                let v = nlist[index].clone();
+                return Some(v);
+            }
+            _ => None
         }
     }
 }

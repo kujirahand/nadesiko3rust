@@ -31,6 +31,9 @@ pub fn run_node(ctx: &mut NodeContext, cur: &Node) -> Option<NodeValue> {
         NodeKind::Break => { ctx.try_break = Some(ctx.callstack_level) },
         NodeKind::Continue => { ctx.try_continue = Some(ctx.callstack_level) },
         NodeKind::Return => result = run_return(ctx, cur),
+        NodeKind::ArrayCreate => result = run_array_create(ctx, cur),
+        NodeKind::ArrayRef => result = run_array_ref(ctx, cur),
+        NodeKind::ArrayLet => result = run_array_let(ctx, cur),
         // _ => { println!("[エラー] runner未実装のノード :{:?}", cur); return None; }
     }
     Some(result)
@@ -314,6 +317,69 @@ fn run_operator(ctx: &mut NodeContext, node: &Node) -> NodeValue {
             NodeValue::Empty
         },
     }
+}
+
+fn run_array_create(ctx: &mut NodeContext, node: &Node) -> NodeValue {
+    let mut val_array: Vec<NodeValue> = vec![];
+    match &node.value {
+        NodeValue::NodeList(nlist) => {
+            for node in nlist.iter() {
+                let opt_val = run_node(ctx, node);
+                match opt_val {
+                    Some(val) => val_array.push(val),
+                    None => {},
+                }
+            }
+        },
+        _ => {}
+    }
+    NodeValue::A(val_array)
+}
+
+fn run_array_let(_ctx: &mut NodeContext, _node: &Node) -> NodeValue {
+    // TODO: 配列要素への代入
+    NodeValue::Empty
+}
+
+fn run_array_ref(ctx: &mut NodeContext, node: &Node) -> NodeValue {
+    let mut val: NodeValue = NodeValue::Empty;
+    match &node.value {
+        NodeValue::NodeList(nlist) => {
+            let mut nlist2 = nlist.clone();
+            // 変数を得る
+            let val_node = nlist2.remove(0);
+            let val_opt = run_node(ctx, &val_node);
+            match val_opt {
+                Some(v) => val = v,
+                None => {
+                    let msg = format!("配列参照のエラー");
+                    ctx.throw_runtime_error(msg, node.line, node.fileno);
+                    return NodeValue::Empty
+                }
+            }
+            // println!("@@@array_ref.var={:?}", val);
+            // indexを得る
+            for index_node in nlist2.iter() {
+                println!("for.nlist={:?}", index_node);
+                let index_val_opt = run_node(ctx, index_node);
+                match index_val_opt {
+                    Some(index_val) => {
+                        // todo: 配列の範囲エラーをチェックする
+                        // println!("@@@array_ref.index={:?}", index_val);
+                        val = val.get_array_index(index_val.to_int(0) as usize).unwrap_or(NodeValue::Empty);
+                        // println!("@@@array_ref.val={:?}", val);
+                    },
+                    None => {
+                        let msg = format!("配列参照のエラー");
+                        ctx.throw_runtime_error(msg, node.line, node.fileno);
+                        return NodeValue::Empty
+                    }
+                }
+            }
+        },
+        _ => {}
+    }
+    val
 }
 
 // -----------------------------------------------

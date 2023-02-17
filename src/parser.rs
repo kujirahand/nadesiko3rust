@@ -52,7 +52,7 @@ impl Parser {
     fn pre_read_def_func(&mut self) {
         // 関数定義だけを先読みする
         while self.cur.can_read() {
-            if self.cur.eq_type(TokenType::DefFunc) {
+            if self.cur.ek_kind(TokenKind::DefFunc) {
                 self.check_def_func(true);
                 continue;
             }
@@ -66,8 +66,8 @@ impl Parser {
         while self.cur.can_read() {
             // 文の連続の終了条件
             if self.has_error() { return Err(self.get_error_str()); }
-            if self.cur.eq_type(TokenType::BlockEnd) { break; }
-            if self.cur.eq_type(TokenType::Else) { break; }
+            if self.cur.ek_kind(TokenKind::BlockEnd) { break; }
+            if self.cur.ek_kind(TokenKind::Else) { break; }
             // 連続で文を読む
             if let Some(node) = self.sentence() {
                 nodes.push(node);
@@ -101,11 +101,11 @@ impl Parser {
 
     fn sentence(&mut self) -> Option<Node> {
         // 「ここまで」があれば抜ける
-        if self.cur.eq_type(TokenType::BlockEnd) { return None; }
+        if self.cur.ek_kind(TokenKind::BlockEnd) { return None; }
         // 「違えば」があれば抜ける
-        if self.cur.eq_type(TokenType::Else) { return None; }
+        if self.cur.ek_kind(TokenKind::Else) { return None; }
         // 改行を無視
-        while self.cur.eq_type(TokenType::Eol) {
+        while self.cur.ek_kind(TokenKind::Eol) {
             self.cur.next_kind();
         }
         // コメント
@@ -115,33 +115,33 @@ impl Parser {
         // もし文
         if let Some(node) = self.check_if() { return Some(node); }
         // 関数定義
-        if self.cur.eq_type(TokenType::DefFunc) { return self.check_def_func(false); }
+        if self.cur.ek_kind(TokenKind::DefFunc) { return self.check_def_func(false); }
         // 抜ける・続ける・戻る
-        if self.cur.eq_type(TokenType::Break) {
+        if self.cur.ek_kind(TokenKind::Break) {
             let t = self.cur.next();
             return Some(self.new_simple_node(NodeKind::Break, &t));
         }
-        if self.cur.eq_type(TokenType::Continue) {
+        if self.cur.ek_kind(TokenKind::Continue) {
             let t = self.cur.next();
             return Some(self.new_simple_node(NodeKind::Continue, &t));
         }
         // トークンの連続＋命令の場合
         while self.cur.can_read() {
-            if self.cur.eq_type(TokenType::Eol) { break; }
+            if self.cur.ek_kind(TokenKind::Eol) { break; }
             if !self.check_value() { break; }
-            if self.cur.eq_type(TokenType::Dainyu) { return self.check_dainyu(); }
+            if self.cur.ek_kind(TokenKind::Dainyu) { return self.check_dainyu(); }
             // call function?
             if self.stack_last_eq(NodeKind::CallSysFunc) || self.stack_last_eq(NodeKind::CallUserFunc) {
                 let callfunc = self.stack.pop().unwrap();
                 return Some(callfunc);
             }
-            if self.cur.eq_type(TokenType::Kai) {
+            if self.cur.ek_kind(TokenKind::Kai) {
                 return self.check_kai();
             }
-            if self.cur.eq_type(TokenType::For) {
+            if self.cur.ek_kind(TokenKind::For) {
                 return self.check_for();
             }
-            if self.cur.eq_type(TokenType::Return) {
+            if self.cur.ek_kind(TokenKind::Return) {
                 let ret_t = self.cur.next();
                 let mut arg = vec![];
                 if self.stack_last_josi_eq("で") {
@@ -181,11 +181,11 @@ impl Parser {
         // 繰り返す内容
         self.skip_comma_comment();
         let mut single_sentence = true;
-        if self.cur.eq_type(TokenType::BlockBegin) {
+        if self.cur.ek_kind(TokenKind::BlockBegin) {
             single_sentence = false;
             self.cur.next(); // ここから
         }
-        if self.cur.eq_type(TokenType::Eol) {
+        if self.cur.ek_kind(TokenKind::Eol) {
             single_sentence = false;
             self.cur.next(); // LF
         }
@@ -202,7 +202,7 @@ impl Parser {
                 Ok(nodes) => nodes,
                 Err(_) => return None,
             };
-            if self.cur.eq_type(TokenType::BlockEnd) {
+            if self.cur.ek_kind(TokenKind::BlockEnd) {
                 self.cur.next(); // skip ここまで
             }
         }
@@ -219,19 +219,19 @@ impl Parser {
 
     fn check_kai(&mut self) -> Option<Node> {
         let kai_t = self.cur.next(); // skip 回
-        if self.cur.eq_type(TokenType::For) {
+        if self.cur.ek_kind(TokenKind::For) {
             self.cur.next(); // skip 繰り返す
         }
         let kaisu_node = self.stack.pop().unwrap_or(Node::new_nop());
-        while self.cur.eq_type(TokenType::Comment) {
+        while self.cur.ek_kind(TokenKind::Comment) {
             self.cur.next(); 
         }
         let mut single_sentence = true;
-        if self.cur.eq_type(TokenType::BlockBegin) {
+        if self.cur.ek_kind(TokenKind::BlockBegin) {
             single_sentence = false;
             self.cur.next(); // ここから
         }
-        if self.cur.eq_type(TokenType::Eol) {
+        if self.cur.ek_kind(TokenKind::Eol) {
             single_sentence = false;
             self.cur.next(); // LF
         }
@@ -247,7 +247,7 @@ impl Parser {
                 Ok(nodes) => nodes,
                 Err(_) => return None,
             };
-            if self.cur.eq_type(TokenType::BlockEnd) {
+            if self.cur.ek_kind(TokenKind::BlockEnd) {
                 self.cur.next(); // skip ここまで
             }
         }
@@ -259,7 +259,7 @@ impl Parser {
     }
 
     fn check_comment(&mut self) -> Option<Node> {
-        if !self.cur.eq_type(TokenType::Comment) { return None; }
+        if !self.cur.ek_kind(TokenKind::Comment) { return None; }
         let t = self.cur.next();
         let node = Node::new(NodeKind::Comment, NodeValue::S(t.label), None, t.line, self.fileno);
         Some(node)
@@ -310,11 +310,11 @@ impl Parser {
 
     fn skip_eol_comment(&mut self) {
         while self.cur.can_read() {
-            if self.cur.eq_type(TokenType::Comment) {
+            if self.cur.ek_kind(TokenKind::Comment) {
                 self.cur.next();
                 continue;
             }
-            if self.cur.eq_type(TokenType::Eol) {
+            if self.cur.ek_kind(TokenKind::Eol) {
                 self.cur.next();
                 continue;
             }
@@ -323,11 +323,11 @@ impl Parser {
     }
     fn skip_comma_comment(&mut self) {
         while self.cur.can_read() {
-            if self.cur.eq_type(TokenType::Comment) {
+            if self.cur.ek_kind(TokenKind::Comment) {
                 self.cur.next();
                 continue;
             }
-            if self.cur.eq_type(TokenType::Comma) {
+            if self.cur.ek_kind(TokenKind::Comma) {
                 self.cur.next();
                 continue;
             }
@@ -337,12 +337,12 @@ impl Parser {
 
     fn check_if(&mut self) -> Option<Node> {
         // 「もし」があるか？
-        if !self.cur.eq_type(TokenType::If) {
+        if !self.cur.ek_kind(TokenKind::If) {
             return None;
         }
         let mosi_t = self.cur.next(); // もし
         let mosi_line = mosi_t.line;
-        if self.cur.eq_type(TokenType::Comma) {
+        if self.cur.ek_kind(TokenKind::Comma) {
             self.cur.next();
         }
         // 条件式を得る
@@ -357,11 +357,11 @@ impl Parser {
         // 真ブロックの取得 --- 単文か複文か
         let mut t_single_sentence = true;
         let mut f_single_sentence = true;
-        if self.cur.eq_type(TokenType::BlockBegin) {
+        if self.cur.ek_kind(TokenKind::BlockBegin) {
             t_single_sentence = false;
             self.cur.next(); // skip ここから
         }
-        if self.cur.eq_type(TokenType::Eol) {
+        if self.cur.ek_kind(TokenKind::Eol) {
             t_single_sentence = false;
             self.cur.next(); // skip EOL
         }
@@ -370,8 +370,8 @@ impl Parser {
                 true_nodes = vec![node];
             }
             // （コメント）＋（一度だけの改行）を許容
-            while self.cur.eq_type(TokenType::Comment) { self.cur.next(); }
-            if self.cur.eq_type(TokenType::Eol) { self.cur.next(); }
+            while self.cur.ek_kind(TokenKind::Comment) { self.cur.next(); }
+            if self.cur.ek_kind(TokenKind::Eol) { self.cur.next(); }
         } else {
             // multi sentences
             if let Ok(nodes) = self.get_sentence_list() {
@@ -380,14 +380,14 @@ impl Parser {
             self.skip_eol_comment();
         }
         // 偽ブロックの取得 --- 単文か複文か
-        if self.cur.eq_type(TokenType::Else) {
+        if self.cur.ek_kind(TokenKind::Else) {
             self.cur.next(); // skip 違えば
             self.skip_comma_comment();
-            if self.cur.eq_type(TokenType::Eol) {
+            if self.cur.ek_kind(TokenKind::Eol) {
                 f_single_sentence = false;
                 self.cur.next(); // skip Eol
             }
-            if self.cur.eq_type(TokenType::BlockBegin) {
+            if self.cur.ek_kind(TokenKind::BlockBegin) {
                 f_single_sentence = false;
                 self.cur.next(); // skip ここから
             }
@@ -402,7 +402,7 @@ impl Parser {
             }
         }
         if !t_single_sentence || !f_single_sentence {
-            if self.cur.eq_type(TokenType::BlockEnd) {
+            if self.cur.ek_kind(TokenKind::BlockEnd) {
                 self.cur.next(); // skip ここまで
             }
         }
@@ -450,25 +450,73 @@ impl Parser {
         true
     }
 
+    fn check_let_array(&mut self) -> Option<Node> {
+        // --- ここで調べるトークンの並び
+        // word [ index ] = value
+        // ---
+        let old_index = self.cur.index;
+        if !self.cur.eq_kinds(&[TokenKind::Word, TokenKind::BracketL]) {
+            return None;
+        }
+        // word
+        let word_t = self.cur.next();
+        let bracket_t = self.cur.next();
+        let index_b = self.check_value();
+        if !index_b {
+            let msg = format!("変数『{}』への配列アクセスでインデックスの指定エラー。", word_t.label);
+            self.throw_error_token(&msg, bracket_t);
+            return None;
+        }
+        // value
+        let _index_node = self.stack.pop().unwrap_or(Node::new_nop());
+        if !self.cur.ek_kind(TokenKind::BracketR) {
+            let msg = format!("変数『{}』への配列アクセスでインデックスの閉じ角括弧がありません。", word_t.label);
+            self.throw_error_token(&msg, bracket_t);
+            // 書き忘れがあったとして続きを読み進める
+        }
+        if !self.cur.ek_kind(TokenKind::Eq) { // "="
+            // 配列アクセスだけど代入文ではなかった！！
+            self.cur.index = old_index; // 巻き戻す
+            return None;
+        }
+        // 代入文
+        let value_node_b = self.check_value();
+        if !value_node_b {
+            let msg = format!("配列変数『{}』への代入で値が読めません。", word_t.label);
+            self.throw_error_token(&msg, word_t);
+            return None;
+        }
+        let value_node = self.stack.pop().unwrap_or(Node::new_nop());
+        let get_var_node = Node::new(NodeKind::GetVar, NodeValue::S(word_t.label), None, word_t.line, self.fileno);
+        let node_list = vec![get_var_node, value_node];
+        let let_array_node = Node::new(NodeKind::ArrayLet, NodeValue::NodeList(node_list), None, word_t.line, self.fileno);
+        Some(let_array_node)
+    }
+
     fn check_let(&mut self) -> Option<Node> {
         // '変数' がある?
-        if self.cur.eq_type(TokenType::DefVar) {
+        if self.cur.ek_kind(TokenKind::DefVar) {
             let dainyu = self.cur.peek();
             self.cur.next();
-            if self.cur.peek_type() != TokenType::Word {
+            if self.cur.peek_kind() != TokenKind::Word {
                 self.throw_error(format!("『変数の(変数名)』の書式で変数を宣言してください。"), dainyu.line);
                 return None;
             }
             // only define local variables
             let word: Token = self.cur.peek();
             self.context.scopes.set_value_local_scope(&word.label, NodeValue::Empty);
-            if !self.cur.eq_kinds(&[TokenType::Word, TokenType::Eq]) {
+            if !self.cur.eq_kinds(&[TokenKind::Word, TokenKind::Eq]) {
                 self.cur.next();
                 return None; 
             }
         }
+        // 配列への代入文か?
+        match self.check_let_array() {
+            Some(node) => return Some(node),
+            None => {}
+        }
         // 代入文か?
-        if !self.cur.eq_kinds(&[TokenType::Word, TokenType::Eq]) { return None; }
+        if !self.cur.eq_kinds(&[TokenKind::Word, TokenKind::Eq]) { return None; }
         let word: Token = self.cur.next();
         self.cur.next(); // eq
 
@@ -553,7 +601,7 @@ impl Parser {
 
     fn check_paren(&mut self) -> bool {
         // ( ... ) の場合
-        if !self.cur.eq_type(TokenType::ParenL) { return false; }
+        if !self.cur.ek_kind(TokenKind::ParenL) { return false; }
         
         let t = self.cur.next(); // skip '('
         if !self.check_value() {
@@ -563,7 +611,7 @@ impl Parser {
         // カッコの内側の値を読む
         let value_node = self.stack.pop().unwrap_or(Node::new_nop());
         // 続いて閉じ括弧がなければエラー
-        if !self.cur.eq_type(TokenType::ParenR) {
+        if !self.cur.ek_kind(TokenKind::ParenR) {
             self.throw_error_token("『)』閉じカッコが必要です。", t);
             return false;
         }
@@ -579,7 +627,7 @@ impl Parser {
         if self.check_paren() {
             return true;
         }
-        if self.cur.eq_type(TokenType::Int) {
+        if self.cur.ek_kind(TokenKind::Int) {
             let t = self.cur.next();
             let i:isize = t.label.parse().unwrap_or(0);
             let node = Node::new(NodeKind::Int, NodeValue::I(i), t.josi, t.line, self.fileno);
@@ -587,7 +635,7 @@ impl Parser {
             self.check_operator();
             return true;
         }
-        if self.cur.eq_type(TokenType::Number) {
+        if self.cur.ek_kind(TokenKind::Number) {
             let t = self.cur.next();
             let v:f64 = t.label.parse().unwrap_or(0.0);
             let node = Node::new(NodeKind::Int, NodeValue::F(v), t.josi, t.line, self.fileno);
@@ -595,14 +643,14 @@ impl Parser {
             self.check_operator();
             return true;
         }
-        if self.cur.eq_type(TokenType::String) {
+        if self.cur.ek_kind(TokenKind::String) {
             let t = self.cur.next();
             let node = Node::new(NodeKind::String, NodeValue::S(t.label), t.josi, t.line, self.fileno);
             self.stack.push(node);
             self.check_operator();
             return true;
         }
-        if self.cur.eq_type(TokenType::True) || self.cur.eq_type(TokenType::False) {
+        if self.cur.ek_kind(TokenKind::True) || self.cur.ek_kind(TokenKind::False) {
             let t = self.cur.next(); // 値
             let b: bool = if t.label.eq("真") { true } else { false };
             let node = Node::new(NodeKind::Bool, NodeValue::B(b), t.josi, t.line, self.fileno);
@@ -610,8 +658,36 @@ impl Parser {
             self.check_operator();
             return true;
         }
-        if self.cur.eq_type(TokenType::Word) {
+        if self.cur.ek_kind(TokenKind::Word) {
             return self.check_variable();
+        }
+        // JSON?
+        if self.cur.ek_kind(TokenKind::BracketL) {
+            let t = self.cur.next();
+            let mut nlist = vec![];
+            loop {
+                if self.cur.ek_kind(TokenKind::BracketR) {
+                    self.cur.next();
+                    break;
+                }
+                let b = self.check_value_one();
+                if b {
+                    nlist.push(self.stack.pop().unwrap_or(Node::new_nop()));
+                } else {
+                    let err_msg = format!("配列データの初期化でエラー。");
+                    self.context.throw_error(
+                        NodeErrorKind::ParserError, NodeErrorLevel::Error,
+                        err_msg, t.line, self.fileno);
+                    break;
+                }
+                if self.cur.ek_kind(TokenKind::Comma) {
+                    self.cur.next();
+                }
+            }
+            let nv = NodeValue::NodeList(nlist);
+            let ca = Node::new(NodeKind::ArrayCreate, nv, None, t.line, self.fileno);
+            self.stack.push(ca);
+            return true;
         }
         false
     }
@@ -660,7 +736,7 @@ impl Parser {
                 self.context.scopes.set_value_local_scope(name, NodeValue::Empty)
             }
         };
-        // 変数か関数か
+        // 変数か関数か？
         let node = match self.context.get_var_value(&info) {
             Some(value) => {
                 // メタ情報を得る
@@ -704,7 +780,25 @@ impl Parser {
             // 絶対ある
             None => { return false },
         };
-        self.stack.push(node);
+        // 添字があるか？
+        if self.cur.peek_kind() == TokenKind::BracketL {
+            let t = self.cur.next();
+            let b = self.check_value();
+            if !b {
+                self.throw_error_token(&format!("変数『{}』の配列アクセスで要素が読めません。", name), t);
+                return false;
+            }
+            if self.cur.peek_kind() != TokenKind::BracketR {
+                self.throw_error_token(&format!("変数『{}』の配列アクセスで閉じ各カッコがありません。", name), t);
+                return false;
+            }
+            self.cur.next(); // skip ']'
+            let index_node = self.stack.pop().unwrap_or(Node::new_nop());
+            let ref_node = Node::new(NodeKind::ArrayRef, NodeValue::NodeList(vec![node, index_node]), None, t.line, self.fileno);
+            self.stack.push(ref_node);
+        } else {
+            self.stack.push(node);
+        }
         self.check_operator();
         return true;
     }
@@ -770,15 +864,15 @@ impl Parser {
 
     fn read_def_func_arg(&mut self) -> Vec<SysArg> {
         let mut args: Vec<SysArg> = vec![];
-        if self.cur.eq_type(TokenType::ParenL) {
+        if self.cur.ek_kind(TokenKind::ParenL) {
             self.cur.next(); // skip '('
         }
         while self.cur.can_read() {
-            if self.cur.eq_type(TokenType::ParenR) {
+            if self.cur.ek_kind(TokenKind::ParenR) {
                 self.cur.next(); // skip ')'
                 break;
             }
-            if !self.cur.eq_type(TokenType::Word) {
+            if !self.cur.ek_kind(TokenKind::Word) {
                 self.throw_error_token(&format!("関数の引数定義は語句が必要です。"), self.cur.peek());
                 break;
             }
@@ -802,22 +896,22 @@ impl Parser {
     }
 
     fn check_def_func(&mut self, pre_read: bool) -> Option<Node> {
-        if !self.cur.eq_type(TokenType::DefFunc) { return None; }
+        if !self.cur.ek_kind(TokenKind::DefFunc) { return None; }
         let def_t = self.cur.next();
         // 引数定義を取得 : ●(引数)関数名
         let mut args: Vec<SysArg> = vec![];
-        if self.cur.eq_type(TokenType::ParenL) {
+        if self.cur.ek_kind(TokenKind::ParenL) {
             args = self.read_def_func_arg();
         }
         // 関数名を取得
-        if !self.cur.eq_type(TokenType::Word) {
+        if !self.cur.ek_kind(TokenKind::Word) {
             self.throw_error_token("関数名がありません", def_t);
             return None;
         }
         let name_t = self.cur.next(); // skip name
         let name_s = name_t.label.clone();
         // 旧引数定義方法 : ●関数名(引数)
-        if self.cur.eq_type(TokenType::ParenL) {
+        if self.cur.ek_kind(TokenKind::ParenL) {
             args = self.read_def_func_arg();
         }
         // 関数を登録 (関数はグローバル領域に確保)
@@ -854,7 +948,7 @@ impl Parser {
         let ret_node = Node::new(NodeKind::Return, NodeValue::NodeList(vec![sore_node]), None, name_t.line, self.fileno);
         body_nodes.push(ret_node);
         // BlockEnd判定
-        if self.cur.eq_type(TokenType::BlockEnd) {
+        if self.cur.ek_kind(TokenKind::BlockEnd) {
             self.cur.next(); // skip ここまで
         }
         // ローカルスコープから抜ける
