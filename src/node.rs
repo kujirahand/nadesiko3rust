@@ -142,10 +142,10 @@ impl NodeValue {
             NodeValue::F(v) => format!("{}", v),
             NodeValue::B(v) => if *v { String::from("真") } else { String::from("偽") },
             NodeValue::A(v) => format!("A[len({})]", v.len()),
-            NodeValue::LetVar(v) => format!("{}={}", v.var_info.name.clone().unwrap_or(String::new()), nodes_to_string(&v.value_node, ",")),
+            NodeValue::LetVar(v) => format!("{}={}", v.var_info.name, nodes_to_string(&v.value_node, ",")),
             NodeValue::NodeList(nodes) => format!("[{}]", nodes_to_string(&nodes, ",")),
             NodeValue::Operator(op) => format!("({})[{}]", op.flag, nodes_to_string(&op.nodes, ",")),
-            NodeValue::GetVar(v) => format!("{}", v.name.clone().unwrap_or(String::new())),
+            NodeValue::GetVar(v) => format!("{}", v.name.clone()),
             NodeValue::CallFunc(name, no, nodes) => format!("{}:{}({})", name, no, nodes_to_string(&nodes, ",")),
             // _ => String::from(""),
         }
@@ -195,6 +195,19 @@ impl NodeValue {
             }
             _ => None
         }
+    }
+    pub fn set_array_index(&mut self, index: usize, value: NodeValue) -> bool {
+        match self {
+            NodeValue::A(nlist) => {
+                while nlist.len() <= index {
+                    nlist.push(NodeValue::Empty);
+                }
+                nlist[index] = value;
+                return true;
+            }
+            _ => {},
+        }
+        return false;
     }
 }
 
@@ -301,13 +314,14 @@ impl NodeValue {
 pub struct NodeValueParamLet {
     pub var_info: NodeVarInfo,
     pub value_node: Vec<Node>,
+    pub index_node: Vec<Node>,
 }
 
 #[derive(Debug,Clone)]
 pub struct NodeVarInfo {
     pub level: usize,
     pub no: usize,
-    pub name: Option<String>,
+    pub name: String,
 }
 
 #[derive(Debug,Clone,PartialEq)]
@@ -358,7 +372,7 @@ impl NodeScopeList {
                 return Some(NodeVarInfo {
                     level: i as usize,
                     no: *no,
-                    name: None, // 検索では変数名は返さない
+                    name: String::from(name),
                 })
             }
             i -= 1;
@@ -380,7 +394,7 @@ impl NodeScopeList {
         let local = self.scopes.len() - 1;
         let no = self.set_value(local, name, value);
         NodeVarInfo {
-            name: None,
+            name: String::from(name),
             level: local,
             no
         }

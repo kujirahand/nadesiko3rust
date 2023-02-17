@@ -31,7 +31,7 @@ impl TokenCur {
         self.index = index2 as usize;
     }
 
-    pub fn ek_kind(&self, kind: TokenKind) -> bool {
+    pub fn eq_kind(&self, kind: TokenKind) -> bool {
         self.peek_kind() == kind
     }
 

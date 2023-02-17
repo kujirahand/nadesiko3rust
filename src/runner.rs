@@ -89,7 +89,7 @@ pub fn run_for(ctx: &mut NodeContext, cur: &Node) -> Option<NodeValue> {
         if loop_node.kind == NodeKind::GetVar {
             match &loop_node.value {
                 NodeValue::GetVar(info) => {
-                    let name: String = info.name.clone().unwrap_or(String::new());
+                    let name: String = info.name.clone();
                     ctx.scopes.set_value_local_scope(&name, NodeValue::I(i));
                 },
                 _ => {},
@@ -197,7 +197,7 @@ fn run_call_userfunc(ctx: &mut NodeContext, node: &Node) -> NodeValue {
         _ => return NodeValue::Empty,
     };
     // 関数を得る
-    let info = NodeVarInfo { level: 1, no: func_no, name: None };
+    let info = NodeVarInfo { level: 1, no: func_no, name: func_name.clone() };
     // println!("@@context:{:?}", ctx.scopes.scopes[1]);
     // println!("@@本体:info={:?}", info);
     let func_value = match ctx.scopes.get_var_value(&info) { // 関数本体
@@ -271,9 +271,9 @@ fn run_let(ctx: &mut NodeContext, node: &Node) -> NodeValue {
     let value = run_nodes(ctx, value_node).unwrap_or(NodeValue::Empty);
     let info = let_value.var_info.clone();
     // let level = info.level;
-    let name = info.name.unwrap_or(String::new()).clone();
+    let name = &info.name;
     // println!("- let {}:L{}={:?}", name, level, value);
-    ctx.scopes.set_value(info.level, &name, value.clone());
+    ctx.scopes.set_value(info.level, name, value.clone());
     value
 }
 
@@ -336,9 +336,68 @@ fn run_array_create(ctx: &mut NodeContext, node: &Node) -> NodeValue {
     NodeValue::A(val_array)
 }
 
-fn run_array_let(_ctx: &mut NodeContext, _node: &Node) -> NodeValue {
-    // TODO: 配列要素への代入
-    NodeValue::Empty
+fn run_array_let(ctx: &mut NodeContext, node: &Node) -> NodeValue {
+    // 配列要素への代入
+    match &node.value {
+        NodeValue::LetVar(param_let) => {
+            println!("@@@parans={:?}", param_let);
+            // 変数を得る
+            let name = param_let.var_info.clone().name;
+            let mut var = match ctx.scopes.get_var_value(&param_let.var_info) {
+                Some(value) => value,
+                None => {
+                    let msg = format!("初期化されていない配列変数『{}』に代入しようとしました。", name);
+                    ctx.throw_runtime_error(msg, node.line, node.fileno);
+                    return NodeValue::Empty;
+                }
+            };
+            // 値を評価
+            let value_node = &param_let.value_node;
+            let let_value = match run_node(ctx, &value_node[0]) {
+                Some(v) => v,
+                None => {
+                    let msg = format!("配列変数『{}』に代入で右辺の値が取得できませんでした。", name);
+                    ctx.throw_runtime_error(msg, node.line, node.fileno);
+                    return NodeValue::Empty;
+                }
+            };
+            // インデックスを得る
+            let mut index_no = 0;
+            let index_vec = &param_let.index_node;
+            for index_node in index_vec {
+                let index = match run_node(ctx, index_node) {
+                    Some(v) => v.to_int(0),
+                    None => {
+                        let msg = format!("配列変数『{}』の{}番目の要素番号が取得できません。", name, index_no + 1);
+                        ctx.throw_runtime_error(msg, node.line, node.fileno);
+                        return NodeValue::Empty;
+                    }
+                };
+                if index_no == index_vec.len() - 1 {
+                    println!("@@@array_set:{}={:?}", &name, let_value);
+                    if !var.set_array_index(index as usize, let_value) {
+                        let msg = format!("配列変数『{}』の代入に失敗しました。", name);
+                        ctx.throw_runtime_error(msg, node.line, node.fileno);
+                        return NodeValue::Empty;
+                    }
+                    break;
+                } else {
+                    // 次の配列要素を得る
+                    match var.get_array_index(index as usize) {
+                        Some(v) => { var = v.clone(); },
+                        None => {
+                            let msg = format!("配列変数『{}』の{}番目の要素が取得できませんでした。", name, index_no + 1);
+                            ctx.throw_runtime_error(msg, node.line, node.fileno);
+                            return NodeValue::Empty;
+                        }
+                    }
+                }
+                index_no += 1;
+            }
+            NodeValue::Empty
+        },
+        _ => { return NodeValue::Empty }
+    }
 }
 
 fn run_array_ref(ctx: &mut NodeContext, node: &Node) -> NodeValue {
