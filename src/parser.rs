@@ -810,19 +810,29 @@ impl Parser {
         };
         // 添字があるか？
         if self.cur.peek_kind() == TokenKind::BracketL {
+            let mut index_vec = vec![node];
             let t = self.cur.next();
-            let b = self.check_value();
-            if !b {
-                self.throw_error_token(&format!("変数『{}』の配列アクセスで要素が読めません。", name), t);
-                return false;
+            loop {
+                let b = self.check_value();
+                if !b {
+                    self.throw_error_token(&format!("変数『{}』の配列アクセスで要素が読めません。", name), t);
+                    return false;
+                }
+                if self.cur.peek_kind() != TokenKind::BracketR {
+                    self.throw_error_token(&format!("変数『{}』の配列アクセスで閉じ各カッコがありません。", name), t);
+                    return false;
+                }
+                let index_node = self.stack.pop().unwrap_or(Node::new_nop());
+                index_vec.push(index_node);
+                // n次元配列か？
+                self.cur.next(); // skip ']'
+                if self.cur.peek_kind() == TokenKind::BracketL {
+                    self.cur.next();
+                    continue;
+                }
+                break;
             }
-            if self.cur.peek_kind() != TokenKind::BracketR {
-                self.throw_error_token(&format!("変数『{}』の配列アクセスで閉じ各カッコがありません。", name), t);
-                return false;
-            }
-            self.cur.next(); // skip ']'
-            let index_node = self.stack.pop().unwrap_or(Node::new_nop());
-            let ref_node = Node::new(NodeKind::ArrayRef, NodeValue::NodeList(vec![node, index_node]), None, t.line, self.fileno);
+            let ref_node = Node::new(NodeKind::ArrayRef, NodeValue::NodeList(index_vec), None, t.line, self.fileno);
             self.stack.push(ref_node);
         } else {
             self.stack.push(node);

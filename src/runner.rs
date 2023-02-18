@@ -608,4 +608,14 @@ mod test_runner {
         let res = eval_str("5*3をAに代入。Aを表示。");
         assert_eq!(res, "15");
     }
+
+    #[test]
+    fn test_array() {
+        let res = eval_str("A=[0,1,2,3];A[2]を表示。");
+        assert_eq!(res, "2");
+        let res = eval_str("A=[10,20,30];A[0]=30;A[0]を表示。");
+        assert_eq!(res, "30");
+        let res = eval_str("A=[[0,1],[2,3]];A[0][1]を表示。");
+        assert_eq!(res, "1");
+    }
 }
