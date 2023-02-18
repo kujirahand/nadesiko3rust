@@ -189,9 +189,16 @@ impl NodeValue {
     pub fn get_array_index(&self, index: usize) -> Option<NodeValue> {
         return match self {
             NodeValue::A(nlist) => {
-                println!("@@@has_array_value");
                 let v = nlist[index].clone();
                 return Some(v);
+            }
+            _ => None
+        }
+    }
+    pub fn get_array_index_mut(&mut self, index: usize) -> Option<&mut NodeValue> {
+        return match self {
+            NodeValue::A(nlist) => {
+                return nlist.get_mut(index);
             }
             _ => None
         }
@@ -405,6 +412,13 @@ impl NodeScopeList {
             return Some(scope.var_values[info.no].clone());
         }
         None
+    }
+    pub fn get_var_value_mut(&mut self, info: &NodeVarInfo) -> Option<&mut NodeValue> {
+        let scope: &mut NodeScope = &mut self.scopes[info.level];
+        if scope.var_values.len() > info.no {
+            return scope.var_values.get_mut(info.no);
+        }
+        return None;
     }
     pub fn get_var_meta(&self, info: &NodeVarInfo) -> Option<NodeVarMeta> {
         let scope: &NodeScope = &self.scopes[info.level];

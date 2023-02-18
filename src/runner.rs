@@ -338,66 +338,76 @@ fn run_array_create(ctx: &mut NodeContext, node: &Node) -> NodeValue {
 
 fn run_array_let(ctx: &mut NodeContext, node: &Node) -> NodeValue {
     // 配列要素への代入
-    match &node.value {
-        NodeValue::LetVar(param_let) => {
-            println!("@@@parans={:?}", param_let);
-            // 変数を得る
-            let name = param_let.var_info.clone().name;
-            let mut var = match ctx.scopes.get_var_value(&param_let.var_info) {
-                Some(value) => value,
-                None => {
-                    let msg = format!("初期化されていない配列変数『{}』に代入しようとしました。", name);
-                    ctx.throw_runtime_error(msg, node.line, node.fileno);
-                    return NodeValue::Empty;
-                }
-            };
-            // 値を評価
-            let value_node = &param_let.value_node;
-            let let_value = match run_node(ctx, &value_node[0]) {
-                Some(v) => v,
-                None => {
-                    let msg = format!("配列変数『{}』に代入で右辺の値が取得できませんでした。", name);
-                    ctx.throw_runtime_error(msg, node.line, node.fileno);
-                    return NodeValue::Empty;
-                }
-            };
-            // インデックスを得る
-            let mut index_no = 0;
-            let index_vec = &param_let.index_node;
-            for index_node in index_vec {
-                let index = match run_node(ctx, index_node) {
-                    Some(v) => v.to_int(0),
-                    None => {
-                        let msg = format!("配列変数『{}』の{}番目の要素番号が取得できません。", name, index_no + 1);
-                        ctx.throw_runtime_error(msg, node.line, node.fileno);
-                        return NodeValue::Empty;
-                    }
-                };
-                if index_no == index_vec.len() - 1 {
-                    println!("@@@array_set:{}={:?}", &name, let_value);
-                    if !var.set_array_index(index as usize, let_value) {
-                        let msg = format!("配列変数『{}』の代入に失敗しました。", name);
-                        ctx.throw_runtime_error(msg, node.line, node.fileno);
-                        return NodeValue::Empty;
-                    }
-                    break;
-                } else {
-                    // 次の配列要素を得る
-                    match var.get_array_index(index as usize) {
-                        Some(v) => { var = v.clone(); },
-                        None => {
-                            let msg = format!("配列変数『{}』の{}番目の要素が取得できませんでした。", name, index_no + 1);
-                            ctx.throw_runtime_error(msg, node.line, node.fileno);
-                            return NodeValue::Empty;
-                        }
-                    }
-                }
-                index_no += 1;
+    let param_let = match &node.value {
+        NodeValue::LetVar(param_let) => param_let,
+        _ => { return NodeValue::Empty; }
+    };
+    let name = param_let.var_info.clone().name;
+    let mut index_list: Vec<usize> = vec![];
+    let let_value: NodeValue;
+    let mut var: &mut NodeValue;
+    {
+        // 値を評価
+        let value_node = &param_let.value_node;
+        let_value = match run_node(ctx, &value_node[0]) {
+            Some(v) => v.clone(),
+            None => {
+                let msg = format!("配列変数『{}』に代入で右辺の値が取得できませんでした。", name);
+                ctx.throw_runtime_error(msg, node.line, node.fileno);
+                return NodeValue::Empty;
             }
-            NodeValue::Empty
-        },
-        _ => { return NodeValue::Empty }
+        };
+        // インデックスを得る
+        let mut index_no = 0;
+        let index_vec: &Vec<Node> = &param_let.index_node;
+        for index_node in index_vec.iter() {
+            let index = match run_node(ctx, index_node) {
+                Some(v) => v.to_int(0),
+                None => {
+                    let msg = format!("配列変数『{}』の{}番目の要素番号が取得できません。", name, index_no + 1);
+                    ctx.throw_runtime_error(msg, node.line, node.fileno);
+                    return NodeValue::Empty;
+                }
+            };
+            index_list.push(index as usize);
+            index_no += 1;
+        }
     }
+    {
+        // 変数を得る
+        var = match ctx.scopes.get_var_value_mut(&param_let.var_info) {
+            None => {
+                let msg = format!("初期化されていない配列変数『{}』に代入しようとしました。", name);
+                ctx.throw_runtime_error(msg, node.line, node.fileno);
+                return NodeValue::Empty;
+            },
+            Some(v) => v,
+        };
+    }
+    {
+        for (i, index_p) in index_list.iter().enumerate() {
+            let index = *index_p;
+            // last?
+            if i == index_list.len() - 1 {
+                if !var.set_array_index(index as usize, let_value) {
+                    let msg = format!("配列変数『{}』の代入に失敗しました。", name);
+                    ctx.throw_runtime_error(msg, node.line, node.fileno);
+                    return NodeValue::Empty;
+                }
+                return var.clone();
+            } else {
+                var = match var.get_array_index_mut(index) {
+                    Some(v) => v,
+                    None => {
+                        let msg = format!("配列変数『{}』の{}番目の要素が取得できませんでした。", name, i + 1);
+                        ctx.throw_runtime_error(msg, node.line, node.fileno);
+                        return NodeValue::Empty;
+                    }
+                }
+            }
+        }
+    }
+    NodeValue::Empty
 }
 
 fn run_array_ref(ctx: &mut NodeContext, node: &Node) -> NodeValue {
