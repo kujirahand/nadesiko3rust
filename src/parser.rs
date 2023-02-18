@@ -132,7 +132,26 @@ impl Parser {
             if self.cur.eq_kind(TokenKind::Dainyu) { return self.check_dainyu(); }
             // call function?
             if self.stack_last_eq(NodeKind::CallSysFunc) || self.stack_last_eq(NodeKind::CallUserFunc) {
-                let callfunc = self.stack.pop().unwrap();
+                let callfunc = self.stack.pop().unwrap_or(Node::new_nop());
+                // 連文の「して」がある場合、もう一文読む
+                if callfunc.is_renbun_josi() {
+                    let t = self.cur.peek();
+                    let mut renbun = vec![callfunc];
+                    loop {
+                        let cur_index = self.cur.index;
+                        if !self.check_value() {
+                            self.cur.index = cur_index;
+                            break;
+                        }
+                        let callfunc2 = self.stack.pop().unwrap_or(Node::new_nop());
+                        let is_renbun = callfunc2.is_renbun_josi();
+                        renbun.push(callfunc2);
+                        if is_renbun { continue; }
+                        break;
+                    }
+                    return Some(Node::new_node_list(renbun, t.line, self.fileno));
+                }
+                println!("josi={:?}",callfunc.josi);
                 return Some(callfunc);
             }
             if self.cur.eq_kind(TokenKind::Kai) {
@@ -218,14 +237,12 @@ impl Parser {
     }
 
     fn check_kai(&mut self) -> Option<Node> {
-        let kai_t = self.cur.next(); // skip 回
+        let kai_t = self.cur.next(); // skip "回"
         if self.cur.eq_kind(TokenKind::For) {
-            self.cur.next(); // skip 繰り返す
+            self.cur.next(); // skip "繰り返す"
         }
         let kaisu_node = self.stack.pop().unwrap_or(Node::new_nop());
-        while self.cur.eq_kind(TokenKind::Comment) {
-            self.cur.next(); 
-        }
+        self.skip_comma_comment();
         let mut single_sentence = true;
         if self.cur.eq_kind(TokenKind::BlockBegin) {
             single_sentence = false;

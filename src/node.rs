@@ -109,6 +109,12 @@ impl Node {
             None => dest_josi == "",
         }
     }
+    pub fn is_renbun_josi(&self) -> bool {
+        match &self.josi {
+            None => false,
+            Some(j) => j.eq("して") || j.eq("って") || j.eq("きて"),
+        }
+    }
 }
 
 // I to B => (i != FALSE_VALUE)

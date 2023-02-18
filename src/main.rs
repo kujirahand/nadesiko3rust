@@ -60,8 +60,8 @@ fn compile_and_run(src: &str, fname: &str, debug_mode: bool) {
     // prepare
     let mut parser = parser::Parser::new();
     parser.context.debug_mode = debug_mode;
-    //sys_function::register(&mut parser.context);
-    sys_function_debug::register(&mut parser.context);
+    sys_function::register(&mut parser.context);
+    // sys_function_debug::register(&mut parser.context);
     // tokenizer
     if debug_mode { println!("--- tokenize ---"); }
     let tokens = tokenizer::tokenize(src);

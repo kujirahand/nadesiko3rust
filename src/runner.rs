@@ -45,10 +45,10 @@ pub fn run_nodes(ctx: &mut NodeContext, nodes: &Vec<Node>) -> Result<NodeValue, 
     let mut result = NodeValue::Empty;
     let mut index = 0;
     while index < nodes_len {
-        if ctx.has_error() { return Err(ctx.get_error_str()); }
-        if ctx.try_continue != None { return Ok(NodeValue::Empty); }
-        if ctx.try_break != None { return Ok(NodeValue::Empty); }
-        if ctx.try_return != None { return Ok(NodeValue::Empty); }
+        if ctx.has_error() { ctx.callstack_level -= 1; return Err(ctx.get_error_str()); }
+        if ctx.try_continue != None { ctx.callstack_level -= 1; return Ok(NodeValue::Empty); }
+        if ctx.try_break != None { ctx.callstack_level -= 1; return Ok(NodeValue::Empty); }
+        if ctx.try_return != None { ctx.callstack_level -= 1; return Ok(NodeValue::Empty); }
         let cur:&Node = &nodes[index];
         if ctx.debug_mode {
             println!("[RUN:{:2}] {}{}", cur.line, indent_str(ctx.callstack_level-1), cur.to_string());
