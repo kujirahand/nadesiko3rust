@@ -57,9 +57,10 @@ fn sys_sleep(_: &mut NodeContext, args: Vec<NodeValue>) -> Option<NodeValue> {
 }
 
 /// なでしこのシステム関数で画面表示
-pub fn sys_print(_: &mut NodeContext, args: Vec<NodeValue>) -> Option<NodeValue> {
+pub fn sys_print(ctx: &mut NodeContext, args: Vec<NodeValue>) -> Option<NodeValue> {
     let s = if args.len() > 0 { args[0].to_string() } else { String::from("<表示内容がありません>") };
     println!("{}", s);
+    ctx.print_log.push_str(&format!("{}\n", s));
     Some(NodeValue::S(s))
 } 
 

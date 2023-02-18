@@ -458,13 +458,17 @@ fn run_array_ref(ctx: &mut NodeContext, node: &Node) -> NodeValue {
 pub struct RunOption {
     pub use_sysfunc: bool,
     pub debug: bool,
+    pub return_print_log: bool,
 }
 impl RunOption {
     pub fn normal() -> Self {
-        Self { use_sysfunc: true, debug: false }
+        Self { use_sysfunc: true, debug: false, return_print_log: false }
     }
     pub fn simple() -> Self {
-        Self { use_sysfunc: false, debug: true }
+        Self { use_sysfunc: false, debug: true, return_print_log: false }
+    }
+    pub fn print_log() -> Self {
+        Self { use_sysfunc: true, debug: false, return_print_log: true }
     }
 }
 
@@ -483,6 +487,13 @@ pub fn eval(code: &str, options: RunOption) -> Result<NodeValue,String> {
         Ok(nodes) => nodes,
         Err(e) => { return Err(e); }
     };
+    // 戻り値として「表示」文のログを返す場合
+    if options.return_print_log {
+        return match run_nodes(&mut p.context, &nodes) {
+            Ok(_) => Ok(NodeValue::S(String::from(p.context.print_log.trim_end()))),
+            Err(e) => Err(e)
+        };
+    }
     run_nodes(&mut p.context, &nodes)
 }
 
@@ -494,6 +505,12 @@ pub fn eval_str(code: &str) -> String {
 }
 pub fn eval_simple_str(code: &str) -> String {
     match eval(code, RunOption::simple()) {
+        Ok(v) => v.to_string(),
+        Err(e) => format!("!!{}", e),
+    }
+}
+pub fn eval_print_str(code: &str) -> String {
+    match eval(code, RunOption::print_log()) {
         Ok(v) => v.to_string(),
         Err(e) => format!("!!{}", e),
     }
@@ -617,5 +634,13 @@ mod test_runner {
         assert_eq!(res, "30");
         let res = eval_str("A=[[0,1],[2,3]];A[0][1]を表示。");
         assert_eq!(res, "1");
+    }
+
+    #[test]
+    fn test_renbun() {
+        let res = eval_str("1に2を足して3を足して表示。");
+        assert_eq!(res, "6");
+        let res = eval_print_str("2回,1に2を足して表示。");
+        assert_eq!(res, "3\n3");
     }
 }

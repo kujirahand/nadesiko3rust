@@ -537,6 +537,7 @@ pub struct NodeContext {
     pub try_continue: Option<usize>,
     pub try_return: Option<usize>,
     pub return_level: usize,
+    pub print_log: String,
 }
 
 impl NodeContext {
@@ -554,6 +555,7 @@ impl NodeContext {
             try_continue: None,
             try_return: None,
             return_level: 0,
+            print_log: String::new(),
         }
     }
     // for file management
