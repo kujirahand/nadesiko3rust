@@ -365,22 +365,29 @@ impl Parser {
             t_single_sentence = false;
             self.cur.next(); // skip EOL
         }
+        // 単文の場合
         if t_single_sentence {
             if let Some(node) = self.sentence() {
                 true_nodes = vec![node];
             }
             // （コメント）＋（一度だけの改行）を許容
             while self.cur.eq_kind(TokenKind::Comment) { self.cur.next(); }
-            if self.cur.eq_kind(TokenKind::Eol) { self.cur.next(); }
+            while self.cur.eq_kind(TokenKind::Eol) { self.cur.next(); }
         } else {
-            // multi sentences
+            // 複文の場合
             if let Ok(nodes) = self.get_sentence_list() {
                 true_nodes = nodes;
             }
             self.skip_eol_comment();
         }
+        // 違えば、もし?
+        if self.cur.eq_kinds(&[TokenKind::Else, TokenKind::If]) {
+            self.cur.next(); // skip 違えば
+            let elseif_node = self.check_if().unwrap_or(Node::new_nop());
+            false_nodes = vec![elseif_node];
+        }
         // 偽ブロックの取得 --- 単文か複文か
-        if self.cur.eq_kind(TokenKind::Else) {
+        else if self.cur.eq_kind(TokenKind::Else) {
             self.cur.next(); // skip 違えば
             self.skip_comma_comment();
             if self.cur.eq_kind(TokenKind::Eol) {

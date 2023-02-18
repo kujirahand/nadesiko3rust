@@ -232,11 +232,11 @@ fn read_number(cur: &mut StrCur, line: &mut u32) -> Token {
     return Token::new(TokenKind::Int, num_s, josi_opt, *line);
 }
 
-fn check_special(result: &mut Vec<Token>, cur: &mut StrCur, word: &str, kind: TokenKind, line: u32) -> bool {
+fn check_special(result: &mut Vec<Token>, cur: &mut StrCur, word: &str, kind: TokenKind, reg_word: &str, line: u32) -> bool {
     if cur.eq_str(word) {
         let len = word.chars().count();
         cur.seek(len as i32);
-        let tok = Token::new_str(kind, word, line);
+        let tok = Token::new_str(kind, reg_word, line);
         result.push(tok);
         return true;
     }
@@ -249,17 +249,18 @@ fn read_word(result: &mut Vec<Token>, cur: &mut StrCur, line: &mut u32) -> bool 
 
     // 特別な語句を例外で登録する
     if cur.eq_str("ここ") {        
-        if check_special(result, cur, "ここから", TokenKind::BlockBegin, *line) { return true; }
-        if check_special(result, cur, "ここまで", TokenKind::BlockEnd, *line) { return true; }
+        if check_special(result, cur, "ここから", TokenKind::BlockBegin, "ここから", *line) { return true; }
+        if check_special(result, cur, "ここまで", TokenKind::BlockEnd, "ここまで", *line) { return true; }
     }
     if cur.eq_str("違") {
-        if check_special(result, cur, "違えば", TokenKind::Else, *line) { return true; }
-        if check_special(result, cur, "違うなら", TokenKind::Else, *line) { return true; }
+        if check_special(result, cur, "違えば", TokenKind::Else, "違", *line) { return true; }
+        if check_special(result, cur, "違うなら", TokenKind::Else, "違", *line) { return true; }
     }
-    if check_special(result, cur, "または", TokenKind::Or, *line) { return true; }
-    if check_special(result, cur, "あるいは", TokenKind::Or, *line) { return true; }
-    if check_special(result, cur, "もしも", TokenKind::If, *line) { return true; }
-    if check_special(result, cur, "もし", TokenKind::If, *line) { return true; }
+    if check_special(result, cur, "または", TokenKind::Or, "||", *line) { return true; }
+    if check_special(result, cur, "あるいは", TokenKind::Or, "||", *line) { return true; }
+    if check_special(result, cur, "かつ", TokenKind::And, "&&", *line) { return true; }
+    if check_special(result, cur, "もしも", TokenKind::If, "もし", *line) { return true; }
+    if check_special(result, cur, "もし", TokenKind::If, "もし", *line) { return true; }
 
     // ひらがなスタートなら1文字目は助詞にならない
     if kanautils::is_hiragana(cur.peek()) {
