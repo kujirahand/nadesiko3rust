@@ -583,6 +583,10 @@ mod test_runner {
         assert_eq!(res, String::from("真"));
         let res = eval_str("真&&真と表示");
         assert_eq!(res, String::from("真"));
+        let res = eval_str("真 または 真と表示");
+        assert_eq!(res, String::from("真"));
+        let res = eval_str("真 かつ 偽と表示");
+        assert_eq!(res, String::from("偽"));
         let res = eval_str("真||偽と表示");
         assert_eq!(res, String::from("真"));
         let res = eval_str("(1==1)&&(2==2)と表示");
