@@ -2,7 +2,6 @@
 /// Japanese programming language "Nadesiko"
 /// - <https://github.com/kujirahand/nadesiko3rust>
 
-
 use nadesiko3::*;
 use std::fs;
 
@@ -11,6 +10,7 @@ fn main() {
     let mut filename: Option<String> = None;
     let mut debug_mode = false;
     let mut eval_mode = false;
+    let mut parse_mode = false;
     let mut runtime = String::from("");
     for (i, arg) in std::env::args().enumerate() {
         if i == 0 { runtime = arg; continue; } // 自分自身
@@ -19,11 +19,13 @@ fn main() {
         if ch == '-' { // option
             if arg.eq("-d") { debug_mode = true; }
             if arg.eq("-e") { eval_mode = true; }
+            if arg.eq("-p") { parse_mode = true; }
             continue;
         }
         // [memo] cargo run でもevalモードが使えるように「-」なしのモード
         if arg.eq("e") || arg.eq("eval") { eval_mode = true; continue; }
         if arg.eq("d") || arg.eq("debug") { debug_mode = true; continue; }
+        if arg.eq("p") || arg.eq("parse") { parse_mode = true; continue; }
         if eval_mode {
             src = arg;
             continue;
@@ -53,10 +55,11 @@ fn main() {
         else { runner::eval_str(&src); }
         return;
     }
-    compile_and_run(&src, &filename, debug_mode);
+    if parse_mode { debug_mode = true; }
+    compile_and_run(&src, &filename, debug_mode, parse_mode);
 }
 
-fn compile_and_run(src: &str, fname: &str, debug_mode: bool) {
+fn compile_and_run(src: &str, fname: &str, debug_mode: bool, parse_mode: bool) {
     // prepare
     let mut parser = parser::Parser::new();
     parser.context.debug_mode = debug_mode;
@@ -72,6 +75,8 @@ fn compile_and_run(src: &str, fname: &str, debug_mode: bool) {
         Err(e) => { println!("!!{}", e); return },
     };
     if debug_mode {
+        println!("--- nodes ---");
+        println!("Nodes={:?}", nodes);
         println!("--- user function ---");
         // グローバルな関数をチェック
         let g_scope = &parser.context.scopes.scopes[1];
@@ -86,9 +91,10 @@ fn compile_and_run(src: &str, fname: &str, debug_mode: bool) {
             }
         }
         println!("---");
+        println!("{}", node::nodes_to_string(&nodes, "\n"));
+        println!("--- run ---"); 
     }
-    if debug_mode { println!("{}", node::nodes_to_string(&nodes, "\n")); }
-    if debug_mode { println!("--- run ---"); }
+    if parse_mode { return; }
     match runner::run_nodes(&mut parser.context, &nodes) {
         Ok(v) => if debug_mode { println!(">> {}", v.to_string()); },
         Err(e) => println!("!! {}", e),
@@ -97,12 +103,13 @@ fn compile_and_run(src: &str, fname: &str, debug_mode: bool) {
 
 fn show_usage() {
     println!(
-        "{}\n{}\n{}\n{}\n{}",
+        "{}\n{}\n{}\n{}\n{}\n{}",
         "[nadesiko3rust]",
         "[使い方] > nadesiko3 (options) (filename)",
         "options:",
         "  -e, e, eval  ... ソースを直接指定して実行",
-        "  -d           ... デバッグ情報を表示",
+        "  -d, d, debug ... デバッグ情報を表示",
+        "  -p, p, parse ... パースだけして表示",
     );
 }
 

@@ -12,8 +12,10 @@ pub enum NodeKind {
     Bool,
     Number,
     String,
-    GetVar, // グローバル変数の取得
-    Let, // グローバル変数への代入
+    GetVarGlobal, // グローバル変数の取得
+    LetVarGlobal, // グローバル変数への代入
+    GetVarLocal,
+    LetVarLocal,
     Operator,
     CallSysFunc,
     CallUserFunc,
@@ -48,8 +50,10 @@ impl Node {
             NodeKind::Bool => format!("B({})", self.value.to_string()),
             NodeKind::String => format!("\"{}\"", self.value.to_string()),
             NodeKind::Comment => format!("Comment:{}", self.value.to_string()),
-            NodeKind::Let => format!("Let:{}", self.value.to_string()),
-            NodeKind::GetVar => format!("{}", self.value.to_string()),
+            NodeKind::LetVarGlobal => format!("Let:{}", self.value.to_string()),
+            NodeKind::GetVarGlobal => format!("Get:{}", self.value.to_string()),
+            NodeKind::LetVarLocal => format!("LetVarLocal:{}", self.value.to_string()),
+            NodeKind::GetVarLocal => format!("GetVarLocal:{}", self.value.to_string()),
             NodeKind::Operator => format!("{}", self.value.to_string()),
             NodeKind::CallSysFunc => format!("Sys:{}", self.value.to_string()),
             NodeKind::CallUserFunc => format!("Usr:{}", self.value.to_string()),
@@ -152,7 +156,7 @@ impl NodeValue {
             NodeValue::NodeList(nodes) => format!("[{}]", nodes_to_string(&nodes, ",")),
             NodeValue::Operator(op) => format!("({})[{}]", op.flag, nodes_to_string(&op.nodes, ",")),
             NodeValue::GetVar(v) => format!("{}", v.name.clone()),
-            NodeValue::CallFunc(name, no, nodes) => format!("{}:{}({})", name, no, nodes_to_string(&nodes, ",")),
+            NodeValue::CallFunc(name, _no, nodes) => format!("{}({})", name, nodes_to_string(&nodes, ",")),
             // _ => String::from(""),
         }
     }

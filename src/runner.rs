@@ -10,12 +10,12 @@ pub fn run_node(ctx: &mut NodeContext, cur: &Node) -> Option<NodeValue> {
     match cur.kind {
         NodeKind::Nop => {},
         NodeKind::Comment => {},
-        NodeKind::Let => result = run_let(ctx, cur),
+        NodeKind::LetVarGlobal => result = run_let(ctx, cur),
         NodeKind::Int => result = cur.value.clone(),
         NodeKind::Bool => result = cur.value.clone(),
         NodeKind::Number => result = cur.value.clone(),
         NodeKind::String => result = cur.value.clone(),
-        NodeKind::GetVar => result = run_get_var(ctx, cur).unwrap_or(NodeValue::Empty),
+        NodeKind::GetVarGlobal => result = run_get_var(ctx, cur).unwrap_or(NodeValue::Empty),
         NodeKind::Operator => result = run_operator(ctx, cur),
         NodeKind::CallSysFunc => result = run_call_sysfunc(ctx, cur),
         NodeKind::CallUserFunc => result = run_call_userfunc(ctx, cur),
@@ -34,7 +34,7 @@ pub fn run_node(ctx: &mut NodeContext, cur: &Node) -> Option<NodeValue> {
         NodeKind::ArrayCreate => result = run_array_create(ctx, cur),
         NodeKind::ArrayRef => result = run_array_ref(ctx, cur),
         NodeKind::ArrayLet => result = run_array_let(ctx, cur),
-        // _ => { println!("[エラー] runner未実装のノード :{:?}", cur); return None; }
+        _ => { println!("[エラー] runner未実装のノード :{:?}", cur); return None; }
     }
     Some(result)
 }
@@ -86,7 +86,7 @@ pub fn run_for(ctx: &mut NodeContext, cur: &Node) -> Option<NodeValue> {
     let made_v = run_node(ctx, &made_node).unwrap_or(NodeValue::Empty);
     let mut result = None;
     for i in kara_v.to_int(0)..=made_v.to_int(0) {
-        if loop_node.kind == NodeKind::GetVar {
+        if loop_node.kind == NodeKind::GetVarGlobal {
             match &loop_node.value {
                 NodeValue::GetVar(info) => {
                     let name: String = info.name.clone();

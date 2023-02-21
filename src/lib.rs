@@ -35,6 +35,7 @@ pub mod tokencur;
 pub mod node;
 pub mod runner;
 pub mod operator;
+pub mod gen_bytecode;
 pub mod sys_function;
 pub mod sys_function_debug;
 

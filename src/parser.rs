@@ -545,7 +545,7 @@ impl Parser {
     }
 
     fn check_let(&mut self) -> Option<Node> {
-        // '変数' がある?
+        // ローカル変数の宣言 '変数' がある?
         if self.cur.eq_kind(TokenKind::DefVar) {
             let dainyu = self.cur.peek();
             self.cur.next();
@@ -606,7 +606,7 @@ impl Parser {
             index_node: vec![],
         };
         let let_node = Node::new(
-            NodeKind::Let, 
+            NodeKind::LetVarGlobal, 
             NodeValue::LetVar(node_value_let),
             None, word.line, self.fileno);
         Some(let_node)
@@ -628,7 +628,7 @@ impl Parser {
             value_node = b;
         }
         // get variable name
-        let var_name = if var_node.kind == NodeKind::GetVar {
+        let var_name = if var_node.kind == NodeKind::GetVarGlobal {
             match var_node.value {
                 NodeValue::GetVar(v) => { v.name },
                 _ => { "それ".to_string() }
@@ -645,7 +645,7 @@ impl Parser {
         var_info.name = var_name;
         let node_value_let = NodeValueParamLet{var_info, value_node: vec![value_node], index_node: vec![]};
         let let_node = Node::new(
-            NodeKind::Let, 
+            NodeKind::LetVarGlobal, 
             NodeValue::LetVar(node_value_let), 
             None, dainyu.line, self.fileno);
         Some(let_node)
@@ -756,7 +756,7 @@ impl Parser {
                 None => {
                     if !sore_hokan {
                         let sore_var = self.context.find_var_info("それ").unwrap_or(NodeVarInfo{level:1, no:0, name:String::from("それ")});
-                        let sore_node = Node::new(NodeKind::GetVar,
+                        let sore_node = Node::new(NodeKind::GetVarGlobal,
                             NodeValue::GetVar(sore_var), None, line, self.fileno);
                         arg_nodes.push(sore_node);
                         sore_hokan = true;
@@ -822,7 +822,7 @@ impl Parser {
                     _ => {
                         info.name = String::from(name);
                         let var_node = Node::new(
-                            NodeKind::GetVar,
+                            NodeKind::GetVarGlobal,
                             NodeValue::GetVar(info),
                             word_t.josi, word_t.line, self.fileno);
                         var_node
@@ -1005,7 +1005,7 @@ impl Parser {
         };
         // 「それで戻る」を最後に足す ← TODO: うまく「それ」が追加されていない
         let sore_var = self.context.find_var_info("それ").unwrap_or(NodeVarInfo{level:2, no:0, name:String::from("それ")});
-        let sore_node = Node::new(NodeKind::GetVar,
+        let sore_node = Node::new(NodeKind::GetVarGlobal,
             NodeValue::GetVar(sore_var), None, name_t.line, self.fileno);
         let ret_node = Node::new(NodeKind::Return, NodeValue::NodeList(vec![sore_node]), None, name_t.line, self.fileno);
         body_nodes.push(ret_node);
@@ -1043,7 +1043,7 @@ mod test_parser {
         let mut p = Parser::new();
         let nodes = p.parse(t, "hoge.nako3").unwrap(); 
         let node = &nodes[0];
-        assert_eq!(node.kind, NodeKind::Let);
+        assert_eq!(node.kind, NodeKind::LetVarGlobal);
         let let_value = match &node.value {
             NodeValue::LetVar(v) => {
                 let name = v.var_info.clone();

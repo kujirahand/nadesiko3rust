@@ -50,7 +50,7 @@ pub fn get_node_priority(node_v: &Node) -> i8 {
         NodeKind::Int => OP_PRIORITY_VALUE,
         NodeKind::Number => OP_PRIORITY_VALUE,
         NodeKind::String => OP_PRIORITY_VALUE,
-        NodeKind::GetVar => OP_PRIORITY_VALUE,
+        NodeKind::GetVarGlobal => OP_PRIORITY_VALUE,
         NodeKind::CallSysFunc => OP_PRIORTY_FUNCTION,
         NodeKind::CallUserFunc => OP_PRIORTY_FUNCTION,
         _ => OP_PRIORITY_VALUE,
