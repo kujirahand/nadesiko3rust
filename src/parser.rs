@@ -151,7 +151,7 @@ impl Parser {
                     }
                     return Some(Node::new_node_list(renbun, t.line, self.fileno));
                 }
-                println!("josi={:?}",callfunc.josi);
+                // println!("josi={:?}",callfunc.josi);
                 return Some(callfunc);
             }
             if self.cur.eq_kind(TokenKind::Kai) {
@@ -982,7 +982,7 @@ impl Parser {
         let no = scope.set_var(&name_t.label, NodeValue::Empty);
         // 関数番号をスコープに再登録(再帰呼び出しに対応)
         scope.set_var(&name_t.label, NodeValue::CallFunc(name_s.clone(), no, vec![]));
-        let mut meta = &mut scope.var_metas[no];
+        let meta = &mut scope.var_metas[no];
         meta.kind = NodeVarKind::UserFunc(args.clone());
         meta.read_only = true;
         if pre_read {

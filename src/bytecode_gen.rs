@@ -4,13 +4,14 @@ use crate::node::*;
 use std::{collections::HashMap};
 
 /// stack machine byte code
+#[derive(Debug,Clone)]
 pub enum Bytecode {
     Nop,
     DebugInfo(usize, usize, String), // (lineno, fileno, comment)
     Label(String),
     ConstInt(isize), // push:1
     ConstFloat(f64), // push:1
-    ConstBool(isize), // push:1
+    ConstBool(bool), // push:1
     ConstStr(usize), // push:1=string_pool[index]
     LetVarGlobal(usize), // pop:1, key=string_pool[index]
     GetVarGlobal(usize), // push:1, key = string_pool[index]
@@ -35,19 +36,25 @@ pub enum Bytecode {
 }
 
 pub struct BytecodeItems {
+    pub index: usize,
     pub codes: Vec<Bytecode>,
     pub string_pool: Vec<String>,
     pub labels: HashMap<String, isize>,
     pub errors: Vec<String>,
+    pub stack: Vec<NodeValue>,
+    pub global_vars: HashMap<String, NodeValue>,
 }
 
 impl BytecodeItems {
     pub fn new() -> Self {
         Self {
+            index: 0,
             codes: vec![],
             string_pool: vec![],
             labels: HashMap::new(),
             errors: vec![],
+            stack: vec![],
+            global_vars: HashMap::new(),
         }
     }
     pub fn get_string_id(&mut self, s: &str) -> usize {
@@ -59,6 +66,9 @@ impl BytecodeItems {
         let id = self.string_pool.len();
         self.string_pool.push(String::from(s));
         id
+    }
+    pub fn get_string(&self, id: usize) -> String {
+        self.string_pool[id].clone()
     }
     pub fn add_debug_info(&mut self, node: &Node, comment: String) {
         self.codes.push(Bytecode::DebugInfo(node.line as usize, node.fileno as usize, comment));

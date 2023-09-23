@@ -95,6 +95,13 @@ fn compile_and_run(src: &str, fname: &str, debug_mode: bool, parse_mode: bool) {
         println!("--- run ---"); 
     }
     if parse_mode { return; }
+    /* 
+    let codes = match bytecode_gen::generate(&nodes) {
+        Ok(codes) => codes,
+        Err(e) => { println!("[ERROR] {}", e); return; },
+    };
+    println!("{:?}", codes);
+    */
     match runner::run_nodes(&mut parser.context, &nodes) {
         Ok(v) => if debug_mode { println!(">> {}", v.to_string()); },
         Err(e) => println!("!! {}", e),

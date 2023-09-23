@@ -1,5 +1,6 @@
 //! 構文解析後のノードを定義
-use std::collections::HashMap;
+use std::{collections::HashMap, cell::RefCell, rc::Rc};
+use std::cell::RefMut;
 
 /// ノードの種類
 #[allow(dead_code)]
@@ -134,6 +135,7 @@ pub enum NodeValue {
     F(f64),
     B(bool),
     A(Vec<NodeValue>),
+    Link(Rc<RefCell<NodeValue>>),
     NodeList(Vec<Node>),
     LetVar(NodeValueParamLet),
     GetVar(NodeVarInfo),
@@ -152,6 +154,10 @@ impl NodeValue {
             NodeValue::F(v) => format!("{}", v),
             NodeValue::B(v) => if *v { String::from("真") } else { String::from("偽") },
             NodeValue::A(v) => format!("A[len({})]", v.len()),
+            NodeValue::Link(v) => {
+                let b: RefMut<NodeValue> = v.borrow_mut();
+                format!("Link:{}", b.to_string())
+            },
             NodeValue::LetVar(v) => format!("{}={}", v.var_info.name, nodes_to_string(&v.value_node, ",")),
             NodeValue::NodeList(nodes) => format!("[{}]", nodes_to_string(&nodes, ",")),
             NodeValue::Operator(op) => format!("({})[{}]", op.flag, nodes_to_string(&op.nodes, ",")),

@@ -33,9 +33,11 @@ pub mod parser;
 pub mod reserved_words;
 pub mod tokencur;
 pub mod node;
-pub mod runner;
 pub mod operator;
-pub mod gen_bytecode;
+pub mod bytecode_gen;
+pub mod bytecode_run;
+// runner
+pub mod runner;
 pub mod sys_function;
 pub mod sys_function_debug;
 

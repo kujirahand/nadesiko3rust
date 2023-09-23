@@ -429,7 +429,7 @@ fn run_array_ref(ctx: &mut NodeContext, node: &Node) -> NodeValue {
             // println!("@@@array_ref.var={:?}", val);
             // indexを得る
             for index_node in nlist2.iter() {
-                println!("for.nlist={:?}", index_node);
+                // println!("for.nlist={:?}", index_node);
                 let index_val_opt = run_node(ctx, index_node);
                 match index_val_opt {
                     Some(index_val) => {
