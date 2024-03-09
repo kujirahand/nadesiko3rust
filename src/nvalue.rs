@@ -33,6 +33,12 @@ impl NValue {
     pub fn from_str(v: &str) -> NValue {
         NValue { kind: NValueKind::String(String::from(v)), tag: 0 }
     }
+    pub fn is_empty(&self) -> bool {
+        match &self.kind {
+            NValueKind::Empty => true,
+            _ => false,
+        }
+    }
     pub fn to_int_def(&self, def_value: i64) -> i64 {
         match &self.kind {
             NValueKind::Int(v) => *v,
