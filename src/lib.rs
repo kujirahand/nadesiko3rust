@@ -23,6 +23,7 @@
 //! ```
 //! 
 
+pub mod nvalue;
 pub mod prepare;
 pub mod strcur;
 pub mod token;
