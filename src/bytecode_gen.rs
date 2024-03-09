@@ -1,7 +1,7 @@
 //! バイトコードを生成
 
 use crate::node::*;
-use std::{collections::HashMap};
+use std::collections::HashMap;
 
 /// stack machine byte code
 #[derive(Debug,Clone)]
@@ -35,6 +35,7 @@ pub enum Bytecode {
     LetArray(usize, usize), // pop:1
 }
 
+#[derive(Debug,Clone)]
 pub struct BytecodeItems {
     pub index: usize,
     pub codes: Vec<Bytecode>,

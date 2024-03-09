@@ -147,12 +147,12 @@ pub fn run_if(ctx: &mut NodeContext, cur: &Node) -> Option<NodeValue> {
     let true_node: &Node = &nodes[1];
     let false_node: &Node = &nodes[2];
     match run_node(ctx, cond) {
-        None => return None,
+        None => None,
         Some(cond_v) => {
             if cond_v.to_bool() {
-                return run_node(ctx, true_node);
+                run_node(ctx, true_node)
             } else {
-                return run_node(ctx, false_node);
+                run_node(ctx, false_node)
             }
         }
     }
@@ -186,7 +186,7 @@ fn run_call_sysfunc(ctx: &mut NodeContext, node: &Node) -> NodeValue {
             ctx.scopes.set_value_local_scope("それ", value.clone());
             value
         },
-        None => return NodeValue::Empty,
+        None => NodeValue::Empty,
     }
 }
 
