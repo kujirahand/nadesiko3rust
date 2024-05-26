@@ -34,7 +34,7 @@ pub fn read_josi(cur: &mut StrCur) -> Option<String> {
     for josi in JOSI_LIST {
       if cur.eq_str(josi) {
         // 助詞を見つけたらカーソルを進める
-        cur.seek(josi.chars().count() as i32);
+        cur.seek(josi.chars().count() as i64);
         // ただし、意味なしの助詞であればカーソルを進めつつもNoneを返す
         if is_josi_iminasi(josi) {
           return None;

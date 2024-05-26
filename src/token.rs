@@ -1,5 +1,7 @@
 //! トークンを定義したもの
 
+use crate::nvalue::NValue;
+
 /// トークンの一覧
 #[derive(Debug,Clone,PartialEq,Copy)]
 pub enum TokenKind {
@@ -54,36 +56,46 @@ pub enum TokenKind {
 #[derive(Debug,Clone)]
 pub struct Token {
     pub kind: TokenKind,
-    pub label: String,
+    pub value: NValue,
     pub josi: Option<String>,
-    pub line: u32,
+    pub start: i64,
+    pub end: i64,
 }
 
 impl Token {
-    pub fn new(kind: TokenKind, label: String, josi: Option<String>, line: u32) -> Self {
-        Self { kind, label, josi, line }
+    /// new token
+    pub fn new(kind: TokenKind, value:NValue, josi: Option<String>, start: i64, end: i64) -> Self {
+        Self { kind, value, josi, start, end }
     }
-    pub fn new_char(kind: TokenKind, label: char, line: u32) -> Self {
+    /// new empty token
+    pub fn new_empty() -> Self {
+        Self::new(TokenKind::None, NValue::Empty, None, 0, 0)
+    }
+    /// new token form char
+    pub fn new_char(kind: TokenKind, label: char, start: i64, end: i64) -> Self {
         Self {
             kind,
-            label: String::from(label),
+            value: NValue::from_char(label),
             josi: None,
-            line,
+            start,
+            end,
         }
     }
-    pub fn new_str(kind: TokenKind, label: &str, line: u32) -> Self {
+    /// new token from string
+    pub fn new_str(kind: TokenKind, label: &str, start: i64, end: i64) -> Self {
         Self {
             kind,
-            label: String::from(label),
+            value: NValue::from_str(label),
             josi: None,
-            line,
+            start,
+            end,
         }
     }
     pub fn as_char(&self) -> char {
-        if self.label.len() > 0 {
-            return self.label.chars().nth(0).unwrap_or('\0');
+        match &self.value {
+            NValue::String(c) => if c.len() > 0 { c.chars().nth(0).unwrap_or('\0') } else { '\0' },
+            _ => '\0',
         }
-        '\0'
     }
 }
 
@@ -92,8 +104,8 @@ impl std::fmt::Display for Token {
         // 助詞の有無に生じて出力方式を変更する
         let get_value = |t: &Token| -> String {
             match &t.josi {
-                Some(j) => { format!("{}/{}", t.label, j) },
-                None    => { format!("{}", t.label) },
+                Some(j) => { format!("{}/{}", t.value.to_string(), j) },
+                None    => { format!("{}", t.value.to_string()) },
             }
         };
         let t = &self;

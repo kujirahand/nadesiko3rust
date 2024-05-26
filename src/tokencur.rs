@@ -55,13 +55,13 @@ impl TokenCur {
     }
 
     pub fn peek(&self) -> Token {
-        if !self.can_read() { return Token::new_str(TokenKind::None, "", 0); }
+        if !self.can_read() { return Token::new_empty() }
         let t = &self.tokens[self.index];
         t.clone()
     }
 
     pub fn next(&mut self) -> Token {
-        if !self.can_read() { return Token::new_str(TokenKind::None, "", 0); }
+        if !self.can_read() { return Token::new_empty() }
         let t = &self.tokens[self.index];
         self.index += 1;
         t.clone()

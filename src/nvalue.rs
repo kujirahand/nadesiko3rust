@@ -1,6 +1,7 @@
 /// nvalue.rs
 
 /// NValue
+#[derive(Debug,Clone,PartialEq)]
 pub enum NValue {
     Empty,
     NaN, // Not a Number (for calculation error)
@@ -31,6 +32,14 @@ impl NValue {
     }
     /// return new String value
     pub fn from_str(v: &str) -> NValue {
+        NValue::String(String::from(v))
+    }
+    /// return new String value
+    pub fn from_string(v: String) -> NValue {
+        NValue::String(v)
+    }
+    /// return new String value
+    pub fn from_char(v: char) -> NValue {
         NValue::String(String::from(v))
     }
     /// check if value is empty

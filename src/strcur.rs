@@ -7,17 +7,22 @@ pub struct StrCur {
     pub src: Vec<char>,
     length: usize, // private : user can not change
     index: usize,
+    top_index: usize, // カーソルの途中からインデックスを取得するためのもの
 }
 
 #[allow(dead_code)]
 impl StrCur {
     pub fn from(src: &str) -> Self {
+        Self::from_source(src, 0)
+    }
+    pub fn from_source(src: &str, top_index: usize) -> Self {
         let vc:Vec<char> = src.chars().collect();
         let len = vc.len();
         Self {
             src: vc,
             index: 0,
             length: len,
+            top_index,
         }
     }
     pub fn peek(&self) -> char {
@@ -35,7 +40,7 @@ impl StrCur {
         self.index += 1;
         return ch;
     }
-    pub fn seek(&mut self, inc_value: i32) {
+    pub fn seek(&mut self, inc_value: i64) {
         if inc_value > 0 {
             self.index += inc_value as usize;
             if self.index >= self.length { self.index = self.length }
@@ -52,7 +57,10 @@ impl StrCur {
         self.index = index;
     }
     pub fn get_index(&mut self) -> usize {
-        self.index
+        self.index + self.top_index
+    }
+    pub fn get_index_i(&mut self) -> i64 {
+        (self.index + self.top_index) as i64
     }
     pub fn peek_half(&self) -> char {
         let ch = self.peek();
@@ -86,7 +94,7 @@ impl StrCur {
     }
     pub fn get_str(&mut self, length: usize) -> String {
         let result = self.peek_chars(length);
-        self.seek(result.len() as i32);
+        self.seek(result.len() as i64);
         result.iter().collect()
     }
     pub fn get_range(&mut self, min:char, max:char) -> Vec<char> {

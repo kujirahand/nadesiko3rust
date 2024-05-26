@@ -37,7 +37,7 @@ pub struct Node {
     pub kind: NodeKind,
     pub value: NodeValue,
     pub josi: Option<String>,
-    pub line: u32,
+    pub line: i64,
     pub fileno: u32,
 }
 impl Node {
@@ -71,7 +71,7 @@ impl Node {
         }
     }
     /// 新規ノードを作成
-    pub fn new(kind: NodeKind, value: NodeValue, josi: Option<String>, line: u32, fileno: u32) -> Self {
+    pub fn new(kind: NodeKind, value: NodeValue, josi: Option<String>, line: i64, fileno: u32) -> Self {
         Self {
             kind,
             value,
@@ -83,7 +83,7 @@ impl Node {
     pub fn new_nop() -> Self {
         Node::new(NodeKind::Nop, NodeValue::Empty, None, 0, 0)
     }
-    pub fn new_operator(operator: char, node_l: Node, node_r: Node, josi: Option<String>, line: u32, fileno: u32) -> Self {
+    pub fn new_operator(operator: char, node_l: Node, node_r: Node, josi: Option<String>, line: i64, fileno: u32) -> Self {
         Node::new(
             NodeKind::Operator, 
             NodeValue::Operator(NodeValueParamOperator {
@@ -93,7 +93,7 @@ impl Node {
             josi, line, fileno
         )
     }
-    pub fn new_node_list(list: Vec<Node>, line: u32, fileno: u32) -> Self {
+    pub fn new_node_list(list: Vec<Node>, line: i64, fileno: u32) -> Self {
         Node::new(
             NodeKind::NodeList,
             NodeValue::NodeList(list),
@@ -596,7 +596,7 @@ impl NodeContext {
         }
         res
     }
-    pub fn throw_error(&mut self, kind: NodeErrorKind, level: NodeErrorLevel, msg: String, line: u32, fileno: u32) {
+    pub fn throw_error(&mut self, kind: NodeErrorKind, level: NodeErrorLevel, msg: String, line: i64, fileno: u32) {
         let err = NodeError::new(kind, level, msg, line, fileno);
         println!("{}", &err.to_string());
         self.errors.push(err);
@@ -605,7 +605,7 @@ impl NodeContext {
             _ => {},
         }
     }
-    pub fn throw_runtime_error(&mut self, msg: String, line: u32, fileno: u32) {
+    pub fn throw_runtime_error(&mut self, msg: String, line: i64, fileno: u32) {
         self.throw_error(NodeErrorKind::RuntimeError, NodeErrorLevel::Error, msg, line, fileno);
     }
     // for scope variables
@@ -710,12 +710,12 @@ pub struct NodeError {
     pub kind: NodeErrorKind,
     pub level: NodeErrorLevel,
     pub message: String,
-    pub line: u32,
+    pub line: i64,
     pub fileno: u32,
 }
 
 impl NodeError {
-    pub fn new(kind: NodeErrorKind, level: NodeErrorLevel, message: String, line: u32, fileno: u32) -> NodeError {
+    pub fn new(kind: NodeErrorKind, level: NodeErrorLevel, message: String, line: i64, fileno: u32) -> NodeError {
         Self {
             kind,
             level,
