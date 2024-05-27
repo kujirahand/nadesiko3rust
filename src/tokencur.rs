@@ -91,12 +91,12 @@ mod test_tokencur {
     use crate::tokenizer;
     #[test]
     fn test_tokencur1() {
-        let t = tokenizer::tokenize("123 'abc'");
+        let t = tokenizer::tokenize_test("123 'abc'");
         let cur = TokenCur::new(t);
         assert_eq!(cur.peek_kind(), TokenKind::Int);
         assert_eq!(cur.eq_kinds(&[TokenKind::Int, TokenKind::String]), true);
         //
-        let t = tokenizer::tokenize("123回");
+        let t = tokenizer::tokenize_test("123回");
         let mut cur = TokenCur::new(t);
         assert_eq!(cur.next_kind(), TokenKind::Int);
         assert_eq!(cur.next_kind(), TokenKind::Kai);

@@ -59,10 +59,10 @@ impl StrCur {
     pub fn set_index(&mut self, index: usize) {
         self.index = index;
     }
-    pub fn get_index(&mut self) -> usize {
+    pub fn get_index(&self) -> usize {
         (self.index as i32 + self.top_index) as usize
     }
-    pub fn get_index_i(&mut self) -> i32 {
+    pub fn get_index_i(&self) -> i32 {
         (self.index as i32 + self.top_index) as i32
     }
     pub fn peek_half(&self) -> char {
@@ -156,6 +156,16 @@ impl StrCur {
     }
     pub fn get_token_str_tostr(&mut self, delimiter: &str) -> String {
         self.get_token_str(delimiter).iter().collect()
+    }
+    /// get lineno
+    pub fn get_lineno(&self, index: i32) -> i32 {
+        let mut lineno = 0;
+        for i in 0..(index as usize) {
+            if self.src[i] == '\n' {
+                lineno += 1;
+            }
+        }
+        lineno + 1
     }
 }
 
@@ -257,5 +267,14 @@ mod test_prepare {
         assert_eq!(cur.next(), '3');
         assert_eq!(cur.next(), '\0');
         assert_eq!(cur.next(), '\0');
+    }
+    #[test]
+    fn lineno_test() {
+        // basic test
+        let cur = StrCur::from("0:aa\n1:bb\n2:cc\n3:dd\n", 0);
+        assert_eq!(cur.get_lineno(0), 1);
+        assert_eq!(cur.get_lineno(6), 2);
+        assert_eq!(cur.get_lineno(11), 3);
+        assert_eq!(cur.get_lineno((cur.length - 1) as i32), 4);
     }
 }

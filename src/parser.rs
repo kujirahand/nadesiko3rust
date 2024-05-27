@@ -1052,9 +1052,9 @@ impl Parser {
     }
 }
 
-pub fn tokenize(code: &str) -> Vec<Token> {
+pub fn tokenize_test(code: &str) -> Vec<Token> {
     let fileno = 0;
-    let mut tokenizer = Tokenizer::new(code, fileno);
+    let mut tokenizer = Tokenizer::new(code, 0, fileno);
     return tokenizer.tokenize()
 }
 
@@ -1064,7 +1064,7 @@ mod test_parser {
 
     #[test]
     fn test_parser_comment() {
-        let t = tokenize("/*cmt*/");
+        let t = tokenize_test("/*cmt*/");
         let mut p = Parser::new();
         let nodes = p.parse(t, "hoge.nako3").unwrap();
         let node = &nodes[0];
@@ -1074,7 +1074,7 @@ mod test_parser {
 
     #[test]
     fn test_parser_let() {
-        let t = tokenize("aaa = 30");
+        let t = tokenize_test("aaa = 30");
         let mut p = Parser::new();
         let nodes = p.parse(t, "hoge.nako3").unwrap(); 
         let node = &nodes[0];

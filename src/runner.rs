@@ -481,7 +481,7 @@ pub fn eval(code: &str, options: RunOption) -> Result<NodeValue,String> {
         sys_function_debug::register(&mut p.context);
     }
     // 字句解析
-    let tokens = tokenizer::tokenize(code);
+    let tokens = tokenizer::tokenize_test(code);
     // 意味解析
     let nodes = match p.parse(tokens, "eval.nako3") {
         Ok(nodes) => nodes,

@@ -2,6 +2,8 @@
 use std::{collections::HashMap, cell::RefCell, rc::Rc};
 use std::cell::RefMut;
 
+use crate::strcur::StrCur;
+
 /// ノードの種類
 #[allow(dead_code)]
 #[derive(Debug,PartialEq,Clone,Copy)]
@@ -541,7 +543,24 @@ pub fn nodes_to_string(nodes: &Vec<Node>, delimiter: &str) -> String {
     let mut r = String::new();
     for (i, node) in nodes.iter().enumerate() {
         if delimiter.eq("\n") {
-            let line = format!("L{}: {}", &node.pos.start, &node.to_string());
+            let line = format!("S{}: {}", node.pos.start , &node.to_string());
+            r.push_str(&line);
+        } else {
+            let line = format!("{}", &node.to_string());
+            r.push_str(&line);
+        }
+        if i != (nodes.len() - 1) {
+            r.push_str(delimiter);
+        }
+    }
+    r
+}
+
+pub fn nodes_to_string_lineno(nodes: &Vec<Node>, cur: &StrCur, delimiter: &str) -> String {
+    let mut r = String::new();
+    for (i, node) in nodes.iter().enumerate() {
+        if delimiter.eq("\n") {
+            let line = format!("L{}: {}", cur.get_lineno(node.pos.start) , &node.to_string());
             r.push_str(&line);
         } else {
             let line = format!("{}", &node.to_string());

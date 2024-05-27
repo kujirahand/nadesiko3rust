@@ -16,10 +16,10 @@ pub struct Tokenizer {
 
 impl Tokenizer {
     /// 新しいインスタンスを生成する
-    pub fn new(src: &str, fileno: i32) -> Tokenizer {
+    pub fn new(src: &str, start: i32, fileno: i32) -> Tokenizer {
         let src = prepare::convert(src, fileno);
         Tokenizer {
-            cur: StrCur::from(&src, fileno),
+            cur: StrCur::from_source(&src, start, fileno),
             tokens: vec![],
         }
     }
@@ -145,7 +145,8 @@ impl Tokenizer {
                 _ => {} // pass
             }
             // pass
-            println!("[字句解析エラー]: 未定義の文字『{}』", ch);
+            let lineno = cur.get_lineno(cur.get_index_i());
+            println!("[字句解析エラー]({}): 未定義の文字『{}』", lineno, ch);
             cur.next();
         }
         self.cur = cur;
@@ -184,7 +185,7 @@ impl Tokenizer {
             if is_extract {
                 if c == '}' || c == '｝' {
                     last_index = index + 1;
-                    let mut toknizer = Tokenizer::new(&code, fileno);
+                    let mut toknizer = Tokenizer::new(&code, start, fileno);
                     toknizer.cur.top_index = (start + last_index as i32) as i32;
                     let list = toknizer.tokenize();
                     if list.len() > 0 {
@@ -439,9 +440,13 @@ fn delete_okurigana(word: Vec<char>) -> Vec<char> {
     result
 }
 
-pub fn tokenize(src: &str) -> Vec<Token> {
-    let mut t = Tokenizer::new(src, 0);
+pub fn tokenize(src: &str, start: i32, fileno: i32) -> Vec<Token> {
+    let mut t = Tokenizer::new(src, start, fileno);
     t.tokenize()
+}
+
+pub fn tokenize_test(src: &str) -> Vec<Token> {
+    tokenize(src, 0, 0)
 }
 
 #[cfg(test)]
@@ -456,45 +461,45 @@ mod test_tokenizer {
     
     #[test]
     fn test_tokenize() {
-        let t = tokenize("//abc");
+        let t = tokenize_test("//abc");
         assert_eq!(tokens_string(&t), "[Comment:abc]");
         assert_eq!(tokens_string_pos(&t), "[Comment:abc](0,5)");
-        let t = tokenize("//abc\n\n/*ABC*/");
+        let t = tokenize_test("//abc\n\n/*ABC*/");
         assert_eq!(tokens_string(&t), "[Comment:abc][Eol][Comment:ABC]");
-        let t = tokenize("3\n3.14");
+        let t = tokenize_test("3\n3.14");
         assert_eq!(tokens_string(&t), "[Int:3][Eol][Number:3.14]");
         assert_eq!(tokens_string_pos(&t), "[Int:3](0,1)[Eol](1,2)[Number:3.14](2,6)");
-        let t = tokenize("hoge=35");
+        let t = tokenize_test("hoge=35");
         assert_eq!(tokens_string(&t), "[Word:hoge][=][Int:35]");
         assert_eq!(tokens_string_pos(&t), "[Word:hoge](0,4)[=](4,5)[Int:35](5,7)");
-        let t = tokenize("年齢=15");
+        let t = tokenize_test("年齢=15");
         assert_eq!(tokens_string(&t), "[Word:年齢][=][Int:15]");
         assert_eq!(tokens_string_pos(&t), "[Word:年齢](0,2)[=](2,3)[Int:15](3,5)");
-        let t = tokenize("(3.2)");
+        let t = tokenize_test("(3.2)");
         assert_eq!(tokens_string(&t), "[(][Number:3.2][)]");
-        let t = tokenize("A=3*5");
+        let t = tokenize_test("A=3*5");
         assert_eq!(tokens_string(&t), "[Word:A][=][Int:3][*][Int:5]");
         assert_eq!(tokens_string_pos(&t), "[Word:A](0,1)[=](1,2)[Int:3](2,3)[*](3,4)[Int:5](4,5)");
-        let t = tokenize("A = 3 * 5");
+        let t = tokenize_test("A = 3 * 5");
         assert_eq!(tokens_string(&t), "[Word:A][=][Int:3][*][Int:5]");
         assert_eq!(tokens_string_pos(&t), "[Word:A](0,1)[=](2,3)[Int:3](4,5)[*](6,7)[Int:5](8,9)");
     }
     #[test]
     fn test_tokenize_josi() {
-        let t = tokenize("AからBまで");
+        let t = tokenize_test("AからBまで");
         assert_eq!(tokens_string(&t), "[Word:A/から][Word:B/まで]");
-        let t = tokenize("犬をネコへ");
+        let t = tokenize_test("犬をネコへ");
         assert_eq!(tokens_string(&t), "[Word:犬/を][Word:ネコ/へ]");
     }
     #[test]
     fn test_tokenize_str() {
-        let t = tokenize("35から「abc」まで置換");
+        let t = tokenize_test("35から「abc」まで置換");
         assert_eq!(tokens_string(&t), "[Int:35/から][String:abc/まで][Word:置換]");
-        let t = tokenize("「１２３123」");
+        let t = tokenize_test("「１２３123」");
         assert_eq!(tokens_string(&t), "[String:１２３123]");
-        let t = tokenize("'hoge'");
+        let t = tokenize_test("'hoge'");
         assert_eq!(tokens_string(&t), "[String:hoge]");
-        let t = tokenize("『boo』");
+        let t = tokenize_test("『boo』");
         assert_eq!(tokens_string(&t), "[String:boo]");
     }
 
@@ -511,23 +516,23 @@ mod test_tokenizer {
 
     #[test]
     fn test_reserved_word() {
-        let t = tokenize("35回");
+        let t = tokenize_test("35回");
         assert_eq!(tokens_string(&t), "[Int:35][Kai]");
-        let t = tokenize("N回");
+        let t = tokenize_test("N回");
         assert_eq!(tokens_string(&t), "[Word:N][Kai]");
     }
 
     #[test]
     fn test_word_check() {
-        let t = tokenize("35回『ワン』と表示");
+        let t = tokenize_test("35回『ワン』と表示");
         assert_eq!(tokens_string(&t), "[Int:35][Kai][String:ワン/と][Word:表示]");
-        let t = tokenize("N回");
+        let t = tokenize_test("N回");
         assert_eq!(tokens_string(&t), "[Word:N][Kai]");
     }
 
     #[test]
     fn test_extract_string() {
-        let t = tokenize("「a={a}」と表示");
+        let t = tokenize_test("「a={a}」と表示");
         assert_eq!(tokens_string(&t), "[String:a=][&][(][Word:a][)][&][String:/と][Word:表示]");
     }
 }

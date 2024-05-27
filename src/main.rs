@@ -60,6 +60,8 @@ fn main() {
 }
 
 fn compile_and_run(src: &str, fname: &str, debug_mode: bool, parse_mode: bool) {
+    // cursor
+    let cur = strcur::StrCur::from(src, 0);
     // prepare
     let mut parser = parser::Parser::new();
     parser.context.debug_mode = debug_mode;
@@ -67,7 +69,7 @@ fn compile_and_run(src: &str, fname: &str, debug_mode: bool, parse_mode: bool) {
     // sys_function_debug::register(&mut parser.context);
     // tokenizer
     if debug_mode { println!("--- tokenize ---"); }
-    let tokens = tokenizer::tokenize(src);
+    let tokens = tokenizer::tokenize_test(src);
     if debug_mode { println!("{}", token::tokens_string(&tokens)); }
     if debug_mode { println!("--- parse ---"); }
     let nodes = match parser.parse(tokens, fname) {
@@ -76,7 +78,8 @@ fn compile_and_run(src: &str, fname: &str, debug_mode: bool, parse_mode: bool) {
     };
     if debug_mode {
         println!("--- nodes ---");
-        println!("Nodes={:?}", nodes);
+        // println!("Nodes={:?}", nodes);
+        println!("{}", node::nodes_to_string_lineno(&nodes, &cur, "\n"));
         println!("--- user function ---");
         // グローバルな関数をチェック
         let g_scope = &parser.context.scopes.scopes[1];
@@ -85,13 +88,11 @@ fn compile_and_run(src: &str, fname: &str, debug_mode: bool, parse_mode: bool) {
             match v {
                 node::NodeValue::CallFunc(name, _no, nodes) => {
                     println!("●{}", name);
-                    println!("{}", node::nodes_to_string(nodes, "\n"));
+                    println!("{}", node::nodes_to_string_lineno(nodes, &cur, "\n"));
                 },
                 _ => {},
             }
         }
-        println!("---");
-        println!("{}", node::nodes_to_string(&nodes, "\n"));
         println!("--- run ---"); 
     }
     if parse_mode { return; }
