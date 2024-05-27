@@ -22,6 +22,10 @@
 //! % nadesiko3 eval "1+2*3を表示"
 //! ```
 //! 
+//! # Current Structure
+//! source(&str) => Tokenize(Vec<Token>) => Parse(Vec<Node>) => Run
+//! see runner::eval()
+//! 
 
 pub mod nvalue;
 pub mod prepare;

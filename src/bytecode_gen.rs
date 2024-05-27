@@ -7,7 +7,7 @@ use std::collections::HashMap;
 #[derive(Debug,Clone)]
 pub enum Bytecode {
     Nop,
-    DebugInfo(usize, usize, String), // (lineno, fileno, comment)
+    DebugInfo(i64, i64, u32, String), // (start, end, fileno, comment)
     Label(String),
     ConstInt(isize), // push:1
     ConstFloat(f64), // push:1
@@ -72,7 +72,7 @@ impl BytecodeItems {
         self.string_pool[id].clone()
     }
     pub fn add_debug_info(&mut self, node: &Node, comment: String) {
-        self.codes.push(Bytecode::DebugInfo(node.line as usize, node.fileno as usize, comment));
+        self.codes.push(Bytecode::DebugInfo(node.pos.start, node.pos.end, node.pos.fileno, comment));
     }
 }
 
@@ -101,7 +101,7 @@ fn generate_node(items: &mut BytecodeItems, node: &Node) {
         NodeKind::LetVarGlobal => {
             let params = match &node.value {
                 NodeValue::LetVar(p) => p,
-                _ => { items.errors.push(format!("({})代入文の生成でエラー", node.line)); return; }
+                _ => { items.errors.push(format!("({})代入文の生成でエラー", node.pos.start)); return; }
             };
             let var_name = &params.var_info.name;
             items.add_debug_info(node, format!("変数『{}』への代入", var_name));

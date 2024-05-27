@@ -31,14 +31,37 @@ pub enum NodeKind {
     ArrayLet,
 }
 
+/// ソースコード情報を表す構造体
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct NodePos {
+    pub start: i64,
+    pub end: i64,
+    pub fileno: u32,
+}
+impl NodePos {
+    pub fn empty() -> Self {
+        NodePos {
+            start: 0,
+            end: 0,
+            fileno: 0,
+        }
+    }
+    pub fn new(start: i64, end: i64, fileno: u32) -> Self {
+        NodePos {
+            start,
+            end,
+            fileno,
+        }
+    }
+}
+
 /// ノード構造体
 #[derive(Debug, Clone)]
 pub struct Node {
     pub kind: NodeKind,
     pub value: NodeValue,
     pub josi: Option<String>,
-    pub line: i64,
-    pub fileno: u32,
+    pub pos: NodePos,
 }
 impl Node {
     /// ノードを文字列変換する
@@ -71,35 +94,33 @@ impl Node {
         }
     }
     /// 新規ノードを作成
-    pub fn new(kind: NodeKind, value: NodeValue, josi: Option<String>, line: i64, fileno: u32) -> Self {
+    pub fn new(kind: NodeKind, value: NodeValue, josi: Option<String>, pos: NodePos) -> Self {
         Self {
             kind,
             value,
             josi,
-            line, 
-            fileno
+            pos,
         }
     }
     pub fn new_nop() -> Self {
-        Node::new(NodeKind::Nop, NodeValue::Empty, None, 0, 0)
+        Node::new(NodeKind::Nop, NodeValue::Empty, None, NodePos::empty())
     }
-    pub fn new_operator(operator: char, node_l: Node, node_r: Node, josi: Option<String>, line: i64, fileno: u32) -> Self {
+    pub fn new_operator(operator: char, node_l: Node, node_r: Node, josi: Option<String>, pos: NodePos) -> Self {
         Node::new(
             NodeKind::Operator, 
             NodeValue::Operator(NodeValueParamOperator {
                 flag: operator,
                 nodes: vec![node_l, node_r],
             }),
-            josi, line, fileno
+            josi, pos,
         )
     }
-    pub fn new_node_list(list: Vec<Node>, line: i64, fileno: u32) -> Self {
+    pub fn new_node_list(list: Vec<Node>, pos: NodePos) -> Self {
         Node::new(
             NodeKind::NodeList,
             NodeValue::NodeList(list),
             None,
-            line,
-            fileno
+            pos,
         )
     }
     pub fn get_josi_str(&self) -> String {
@@ -520,7 +541,7 @@ pub fn nodes_to_string(nodes: &Vec<Node>, delimiter: &str) -> String {
     let mut r = String::new();
     for (i, node) in nodes.iter().enumerate() {
         if delimiter.eq("\n") {
-            let line = format!("L{}: {}", &node.line, &node.to_string());
+            let line = format!("L{}: {}", &node.pos.start, &node.to_string());
             r.push_str(&line);
         } else {
             let line = format!("{}", &node.to_string());
@@ -596,8 +617,8 @@ impl NodeContext {
         }
         res
     }
-    pub fn throw_error(&mut self, kind: NodeErrorKind, level: NodeErrorLevel, msg: String, line: i64, fileno: u32) {
-        let err = NodeError::new(kind, level, msg, line, fileno);
+    pub fn throw_error(&mut self, kind: NodeErrorKind, level: NodeErrorLevel, msg: String, pos: NodePos) {
+        let err = NodeError::new(kind, level, msg, pos);
         println!("{}", &err.to_string());
         self.errors.push(err);
         match level {
@@ -605,8 +626,8 @@ impl NodeContext {
             _ => {},
         }
     }
-    pub fn throw_runtime_error(&mut self, msg: String, line: i64, fileno: u32) {
-        self.throw_error(NodeErrorKind::RuntimeError, NodeErrorLevel::Error, msg, line, fileno);
+    pub fn throw_runtime_error(&mut self, msg: String, pos: NodePos) {
+        self.throw_error(NodeErrorKind::RuntimeError, NodeErrorLevel::Error, msg, pos);
     }
     // for scope variables
     pub fn find_var_info(&self, name: &str) -> Option<NodeVarInfo> {
@@ -710,18 +731,16 @@ pub struct NodeError {
     pub kind: NodeErrorKind,
     pub level: NodeErrorLevel,
     pub message: String,
-    pub line: i64,
-    pub fileno: u32,
+    pub pos: NodePos,
 }
 
 impl NodeError {
-    pub fn new(kind: NodeErrorKind, level: NodeErrorLevel, message: String, line: i64, fileno: u32) -> NodeError {
+    pub fn new(kind: NodeErrorKind, level: NodeErrorLevel, message: String, pos: NodePos) -> NodeError {
         Self {
             kind,
             level,
             message,
-            line,
-            fileno
+            pos,
         }
     }
     pub fn to_string(&self) -> String {
@@ -734,7 +753,7 @@ impl NodeError {
             NodeErrorLevel::Warning => "警告",
             NodeErrorLevel::Hint => "ヒント",
         };
-        format!("[{}{}]({}){}", kind_str, level_str, self.line, self.message)
+        format!("[{}{}]({:?}){}", kind_str, level_str, self.pos, self.message)
     } 
 }
 

@@ -52,43 +52,53 @@ pub enum TokenKind {
     Dainyu,
 }
 
+/// トークンのソースコード情報を表現する構造体
+#[derive(Debug,Clone)]
+pub struct TokenPos {
+    pub start: i64,
+    pub end: i64,
+}
+
+impl TokenPos {
+    pub fn new(start: i64, end: i64) -> Self {
+        Self { start, end }
+    }
+}
+
 /// トークンを表現する構造体
 #[derive(Debug,Clone)]
 pub struct Token {
     pub kind: TokenKind,
     pub value: NValue,
     pub josi: Option<String>,
-    pub start: i64,
-    pub end: i64,
+    pub pos: TokenPos,
 }
 
 impl Token {
     /// new token
-    pub fn new(kind: TokenKind, value:NValue, josi: Option<String>, start: i64, end: i64) -> Self {
-        Self { kind, value, josi, start, end }
+    pub fn new(kind: TokenKind, value:NValue, josi: Option<String>, pos: TokenPos) -> Self {
+        Self { kind, value, josi, pos }
     }
     /// new empty token
     pub fn new_empty() -> Self {
-        Self::new(TokenKind::None, NValue::Empty, None, 0, 0)
+        Self::new(TokenKind::None, NValue::Empty, None, TokenPos::new(0, 0))
     }
     /// new token form char
-    pub fn new_char(kind: TokenKind, label: char, start: i64, end: i64) -> Self {
+    pub fn new_char(kind: TokenKind, label: char, pos: TokenPos) -> Self {
         Self {
             kind,
             value: NValue::from_char(label),
             josi: None,
-            start,
-            end,
+            pos,
         }
     }
     /// new token from string
-    pub fn new_str(kind: TokenKind, label: &str, start: i64, end: i64) -> Self {
+    pub fn new_str(kind: TokenKind, label: &str, pos: TokenPos) -> Self {
         Self {
             kind,
             value: NValue::from_str(label),
             josi: None,
-            start,
-            end,
+            pos,
         }
     }
     pub fn as_char(&self) -> char {
@@ -96,6 +106,9 @@ impl Token {
             NValue::String(c) => if c.len() > 0 { c.chars().nth(0).unwrap_or('\0') } else { '\0' },
             _ => '\0',
         }
+    }
+    pub fn as_label(&self) -> String {
+        self.value.to_string()
     }
 }
 

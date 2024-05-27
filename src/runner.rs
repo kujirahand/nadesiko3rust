@@ -51,7 +51,7 @@ pub fn run_nodes(ctx: &mut NodeContext, nodes: &Vec<Node>) -> Result<NodeValue, 
         if ctx.try_return != None { ctx.callstack_level -= 1; return Ok(NodeValue::Empty); }
         let cur:&Node = &nodes[index];
         if ctx.debug_mode {
-            println!("[RUN:{:2}] {}{}", cur.line, indent_str(ctx.callstack_level-1), cur.to_string());
+            println!("[RUN:{:2}] {}{}", cur.pos.start, indent_str(ctx.callstack_level-1), cur.to_string());
         }
         if let Some(v) = run_node(ctx, cur) { result = v; }
         index += 1;
@@ -169,7 +169,7 @@ fn run_call_sysfunc(ctx: &mut NodeContext, node: &Node) -> NodeValue {
                         ctx.throw_error(
                             NodeErrorKind::RuntimeError, NodeErrorLevel::Error, 
                             format!("『{}』の呼び出しでエラー。{}", func_name, err), 
-                            node.line, node.fileno);
+                            node.pos);
                         return NodeValue::Empty;
                     }
                 };
@@ -229,7 +229,7 @@ fn run_call_userfunc(ctx: &mut NodeContext, node: &Node) -> NodeValue {
                 ctx.throw_error(
                     NodeErrorKind::RuntimeError, NodeErrorLevel::Error, 
                     format!("『{}』の呼び出しでエラー。{}", func_name, err), 
-                    node.line, node.fileno);
+                    node.pos);
                 return NodeValue::Empty;
             }
         };
@@ -244,7 +244,7 @@ fn run_call_userfunc(ctx: &mut NodeContext, node: &Node) -> NodeValue {
             match run_nodes(ctx, &nodes) {
                 Ok(v) => v,
                 Err(e) => {
-                    ctx.throw_runtime_error(format!("『{}』の呼び出しでエラー。{}", name, e), node.line, node.fileno);
+                    ctx.throw_runtime_error(format!("『{}』の呼び出しでエラー。{}", name, e), node.pos);
                     NodeValue::Empty
                 }
             };
@@ -353,7 +353,7 @@ fn run_array_let(ctx: &mut NodeContext, node: &Node) -> NodeValue {
             Some(v) => v.clone(),
             None => {
                 let msg = format!("配列変数『{}』に代入で右辺の値が取得できませんでした。", name);
-                ctx.throw_runtime_error(msg, node.line, node.fileno);
+                ctx.throw_runtime_error(msg, node.pos);
                 return NodeValue::Empty;
             }
         };
@@ -365,7 +365,7 @@ fn run_array_let(ctx: &mut NodeContext, node: &Node) -> NodeValue {
                 Some(v) => v.to_int(0),
                 None => {
                     let msg = format!("配列変数『{}』の{}番目の要素番号が取得できません。", name, index_no + 1);
-                    ctx.throw_runtime_error(msg, node.line, node.fileno);
+                    ctx.throw_runtime_error(msg, node.pos);
                     return NodeValue::Empty;
                 }
             };
@@ -378,7 +378,7 @@ fn run_array_let(ctx: &mut NodeContext, node: &Node) -> NodeValue {
         var = match ctx.scopes.get_var_value_mut(&param_let.var_info) {
             None => {
                 let msg = format!("初期化されていない配列変数『{}』に代入しようとしました。", name);
-                ctx.throw_runtime_error(msg, node.line, node.fileno);
+                ctx.throw_runtime_error(msg, node.pos);
                 return NodeValue::Empty;
             },
             Some(v) => v,
@@ -391,7 +391,7 @@ fn run_array_let(ctx: &mut NodeContext, node: &Node) -> NodeValue {
             if i == index_list.len() - 1 {
                 if !var.set_array_index(index as usize, let_value) {
                     let msg = format!("配列変数『{}』の代入に失敗しました。", name);
-                    ctx.throw_runtime_error(msg, node.line, node.fileno);
+                    ctx.throw_runtime_error(msg, node.pos);
                     return NodeValue::Empty;
                 }
                 return var.clone();
@@ -400,7 +400,7 @@ fn run_array_let(ctx: &mut NodeContext, node: &Node) -> NodeValue {
                     Some(v) => v,
                     None => {
                         let msg = format!("配列変数『{}』の{}番目の要素が取得できませんでした。", name, i + 1);
-                        ctx.throw_runtime_error(msg, node.line, node.fileno);
+                        ctx.throw_runtime_error(msg, node.pos);
                         return NodeValue::Empty;
                     }
                 }
@@ -422,7 +422,7 @@ fn run_array_ref(ctx: &mut NodeContext, node: &Node) -> NodeValue {
                 Some(v) => val = v,
                 None => {
                     let msg = format!("配列参照のエラー");
-                    ctx.throw_runtime_error(msg, node.line, node.fileno);
+                    ctx.throw_runtime_error(msg, node.pos);
                     return NodeValue::Empty
                 }
             }
@@ -440,7 +440,7 @@ fn run_array_ref(ctx: &mut NodeContext, node: &Node) -> NodeValue {
                     },
                     None => {
                         let msg = format!("配列参照のエラー");
-                        ctx.throw_runtime_error(msg, node.line, node.fileno);
+                        ctx.throw_runtime_error(msg, node.pos);
                         return NodeValue::Empty
                     }
                 }

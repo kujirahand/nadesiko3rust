@@ -28,12 +28,15 @@ impl Parser {
     pub fn get_error_str(&self) -> String {
         self.context.get_error_str()
     }
-    pub fn throw_error(&mut self, msg: String, start: i64) {
-        self.context.throw_error(NodeErrorKind::ParserError, NodeErrorLevel::Error, msg, start, self.fileno);
+    pub fn throw_error(&mut self, msg: String, pos: NodePos) {
+        self.context.throw_error(NodeErrorKind::ParserError, NodeErrorLevel::Error, msg, pos);
     }
     pub fn throw_error_token(&mut self, msg: &str, t: Token) {
         let message = format!("『{}』の近くで、{}。", t.value.to_string(), msg);
-        self.throw_error(message, t.start);
+        self.throw_error(message, self.pos(&t));
+    }
+    pub fn pos(&self, t: &Token) -> NodePos {
+        NodePos::new(t.pos.start, t.pos.end, self.fileno)
     }
 
     //-------------------------------------------------------------
@@ -96,7 +99,7 @@ impl Parser {
     }
 
     fn new_simple_node(&self, kind: NodeKind, t: &Token) -> Node {
-        return Node::new(kind, NodeValue::Empty, None, t.start, self.fileno)
+        return Node::new(kind, NodeValue::Empty, None, self.pos(t))
     }
 
     fn sentence(&mut self) -> Option<Node> {
@@ -149,7 +152,7 @@ impl Parser {
                         if is_renbun { continue; }
                         break;
                     }
-                    return Some(Node::new_node_list(renbun, t.start, self.fileno));
+                    return Some(Node::new_node_list(renbun, self.pos(&t)));
                 }
                 // println!("josi={:?}",callfunc.josi);
                 return Some(callfunc);
@@ -166,21 +169,26 @@ impl Parser {
                 if self.stack_last_josi_eq("で") {
                     arg.push(self.stack.pop().unwrap_or(Node::new_nop()));
                 }
-                return Some(Node::new(NodeKind::Return, NodeValue::NodeList(arg), None, ret_t.start, self.fileno));
+                return Some(
+                    Node::new(
+                        NodeKind::Return,
+                        NodeValue::NodeList(arg), None,
+                        self.pos(&ret_t)
+                    ));
             }
         }
         // スタックの余剰があればエラーとして報告する
         if self.stack.len() > 0 {
-            let mut line = 0;
+            let mut pos: NodePos = NodePos::empty();
             let mut errmsg = String::from("計算式に次の余剰があります。\n");
             while let Some(n) = self.stack.pop() {
                 errmsg = format!(
                     "{}({})\n",
                     errmsg,
                     n.to_string());
-                line = n.line;
+                pos = n.pos;
             }
-            self.throw_error(format!("{}必要なら式を(式)のようにカッコで囲ってみてください。", errmsg), line);
+            self.throw_error(format!("{}必要なら式を(式)のようにカッコで囲ってみてください。", errmsg), pos);
         }
         None
     }
@@ -231,8 +239,8 @@ impl Parser {
                 loop_node,
                 kara_node,
                 made_node,
-                Node::new(NodeKind::NodeList, NodeValue::NodeList(body_nodes), None, kai_t.start, self.fileno),
-            ]), None, kai_t.start, self.fileno);
+                Node::new(NodeKind::NodeList, NodeValue::NodeList(body_nodes), None, self.pos(&kai_t)),
+            ]), None, self.pos(&kai_t));
         Some(for_node)
     }
 
@@ -268,17 +276,23 @@ impl Parser {
                 self.cur.next(); // skip ここまで
             }
         }
-        let kai_node = Node::new(NodeKind::Kai, NodeValue::NodeList(vec![
-            kaisu_node,
-            Node::new_node_list(body_nodes, kai_t.start, self.fileno),
-        ]), None, kai_t.start, self.fileno);
+        let kai_node = Node::new(
+            NodeKind::Kai,
+            NodeValue::NodeList(vec![
+                kaisu_node,
+                Node::new_node_list(body_nodes, self.pos(&kai_t)),
+            ]), None, self.pos(&kai_t));
         Some(kai_node)
     }
 
     fn check_comment(&mut self) -> Option<Node> {
         if !self.cur.eq_kind(TokenKind::Comment) { return None; }
         let t = self.cur.next();
-        let node = Node::new(NodeKind::Comment, NodeValue::S(t.value.to_string()), None, t.start, self.fileno);
+        let node = Node::new(
+            NodeKind::Comment,
+            NodeValue::S(t.value.to_string()),
+            None,
+            self.pos(&t));
         Some(node)
     }
 
@@ -295,7 +309,9 @@ impl Parser {
             Some(active) => {
                 if !active {
                     // 否定形にする
-                    cond1 = Node::new_operator('!', cond1, Node::new_nop(), Some(josi1), mosi_t.start, self.fileno);
+                    cond1 = Node::new_operator(
+                        '!', cond1, Node::new_nop(), Some(josi1),
+                        self.pos(&mosi_t));
                 }
             },
             None => {
@@ -309,7 +325,10 @@ impl Parser {
                     let josi2 = cond2.get_josi_str();
                     match josi_list::is_josi_mosi(&josi2) {
                         Some(active) => {
-                            cond1 = Node::new_operator(if active {'='} else {'≠'}, cond1, cond2, Some(josi2), mosi_t.start, self.fileno);
+                            cond1 = Node::new_operator(
+                                if active {'='} else {'≠'},
+                                cond1, cond2, Some(josi2),
+                                self.pos(&mosi_t));
                         },
                         None => {
                             self.throw_error_token("『もし(値1)が(値2)ならば』と記述する必要があります。", mosi_t);
@@ -358,7 +377,7 @@ impl Parser {
             return None;
         }
         let mosi_t = self.cur.next(); // もし
-        let mosi_line = mosi_t.start;
+        let mosi_pos = self.pos(&mosi_t);
         if self.cur.eq_kind(TokenKind::Comma) {
             self.cur.next();
         }
@@ -431,9 +450,9 @@ impl Parser {
             }
         }
         // nodes -> node
-        let t_node = Node::new(NodeKind::NodeList, NodeValue::NodeList(true_nodes), None, 0, self.fileno);
-        let f_node = Node::new(NodeKind::NodeList, NodeValue::NodeList(false_nodes), None, 0, self.fileno);
-        let if_node = Node::new(NodeKind::If, NodeValue::NodeList(vec![cond, t_node, f_node]), None, mosi_line, self.fileno);
+        let t_node = Node::new(NodeKind::NodeList, NodeValue::NodeList(true_nodes), None, mosi_pos);
+        let f_node = Node::new(NodeKind::NodeList, NodeValue::NodeList(false_nodes), None, mosi_pos);
+        let if_node = Node::new(NodeKind::If, NodeValue::NodeList(vec![cond, t_node, f_node]), None, mosi_pos);
         Some(if_node)
     }
 
@@ -490,7 +509,7 @@ impl Parser {
             // index
             let index_b = self.check_value();
             if !index_b {
-                let msg = format!("変数『{}』への配列アクセスでインデックスの指定エラー。", word_t.start);
+                let msg = format!("変数『{}』への配列アクセスでインデックスの指定エラー。", word_t.value.to_string());
                 self.throw_error_token(&msg, bracket_t.clone());
                 return None;
             }
@@ -530,7 +549,7 @@ impl Parser {
             Some(info) => info,
             None => {
                 // 配列変数が存在しないのでエラーにする
-                let msg = format!("配列変数『{}』への代入がありますが、変数が存在しません。", word_t.value.to_string());
+                let msg = format!("配列変数『{}』への代入がありますが、変数が存在しません。", word_t.as_label());
                 self.throw_error_token(&msg, word_t);
                 return None;
             }
@@ -540,7 +559,7 @@ impl Parser {
             value_node: vec![value_node],
             index_node: index_vec,
         };
-        let let_array_node = Node::new(NodeKind::ArrayLet, NodeValue::LetVar(node_params), None, word_t.start, self.fileno);
+        let let_array_node = Node::new(NodeKind::ArrayLet, NodeValue::LetVar(node_params), None, self.pos(&word_t));
         Some(let_array_node)
     }
 
@@ -550,7 +569,7 @@ impl Parser {
             let dainyu = self.cur.peek();
             self.cur.next();
             if self.cur.peek_kind() != TokenKind::Word {
-                self.throw_error(format!("『変数の(変数名)』の書式で変数を宣言してください。"), dainyu.start);
+                self.throw_error(format!("『変数の(変数名)』の書式で変数を宣言してください。"), self.pos(&dainyu));
                 return None;
             }
             // only define local variables
@@ -573,12 +592,12 @@ impl Parser {
 
         // 値を取得する
         if !self.check_value() { // error
-            self.throw_error(format!("『{}』の代入文で値がありません。", word.value.to_string()), word.start);
+            self.throw_error(format!("『{}』の代入文で値がありません。", word.value.to_string()), self.pos(&word));
             return None;
         }
         let value = match self.stack.pop() {
             None => {
-                self.throw_error(format!("『{}』の代入文で値がありません。", word.value.to_string()), word.start);
+                self.throw_error(format!("『{}』の代入文で値がありません。", word.value.to_string()), self.pos(&word));
                 return None;
             },
             Some(node) => node,
@@ -608,7 +627,7 @@ impl Parser {
         let let_node = Node::new(
             NodeKind::LetVarGlobal, 
             NodeValue::LetVar(node_value_let),
-            None, word.start, self.fileno);
+            None, self.pos(&word));
         Some(let_node)
     }
 
@@ -647,7 +666,7 @@ impl Parser {
         let let_node = Node::new(
             NodeKind::LetVarGlobal, 
             NodeValue::LetVar(node_value_let), 
-            None, dainyu.start, self.fileno);
+            None, self.pos(&dainyu));
         Some(let_node)
     }
 
@@ -668,7 +687,8 @@ impl Parser {
             return false;
         }
         let t_close = self.cur.next(); // skip ')'
-        let node = Node::new_operator('(', value_node, Node::new_nop(), t_close.josi, t.start, self.fileno);
+        let node = Node::new_operator(
+            '(', value_node, Node::new_nop(), t_close.josi, self.pos(&t));
         self.stack.push(node);
         self.check_operator();
         return true;
@@ -682,7 +702,7 @@ impl Parser {
         if self.cur.eq_kind(TokenKind::Int) {
             let t = self.cur.next();
             let i:isize = t.value.to_string().parse().unwrap_or(0);
-            let node = Node::new(NodeKind::Int, NodeValue::I(i), t.josi, t.start, self.fileno);
+            let node = Node::new(NodeKind::Int, NodeValue::I(i), t.josi.clone(), self.pos(&t));
             self.stack.push(node);
             self.check_operator();
             return true;
@@ -690,14 +710,14 @@ impl Parser {
         if self.cur.eq_kind(TokenKind::Number) {
             let t = self.cur.next();
             let v:f64 = t.value.to_string().parse().unwrap_or(0.0);
-            let node = Node::new(NodeKind::Int, NodeValue::F(v), t.josi, t.start, self.fileno);
+            let node = Node::new(NodeKind::Int, NodeValue::F(v), t.josi.clone(), self.pos(&t));
             self.stack.push(node);
             self.check_operator();
             return true;
         }
         if self.cur.eq_kind(TokenKind::String) {
             let t = self.cur.next();
-            let node = Node::new(NodeKind::String, NodeValue::S(t.value.to_string()), t.josi, t.start, self.fileno);
+            let node = Node::new(NodeKind::String, NodeValue::S(t.value.to_string()), t.josi.clone(), self.pos(&t));
             self.stack.push(node);
             self.check_operator();
             return true;
@@ -705,7 +725,7 @@ impl Parser {
         if self.cur.eq_kind(TokenKind::True) || self.cur.eq_kind(TokenKind::False) {
             let t = self.cur.next(); // 値
             let b: bool = if t.value.to_string().eq("真") { true } else { false };
-            let node = Node::new(NodeKind::Bool, NodeValue::B(b), t.josi, t.start, self.fileno);
+            let node = Node::new(NodeKind::Bool, NodeValue::B(b), t.josi.clone(), self.pos(&t));
             self.stack.push(node);
             self.check_operator();
             return true;
@@ -729,7 +749,7 @@ impl Parser {
                     let err_msg = format!("配列データの初期化でエラー。");
                     self.context.throw_error(
                         NodeErrorKind::ParserError, NodeErrorLevel::Error,
-                        err_msg, t.start, self.fileno);
+                        err_msg, self.pos(&t));
                     break;
                 }
                 if self.cur.eq_kind(TokenKind::Comma) {
@@ -737,14 +757,14 @@ impl Parser {
                 }
             }
             let nv = NodeValue::NodeList(nlist);
-            let ca = Node::new(NodeKind::ArrayCreate, nv, None, t.start, self.fileno);
+            let ca = Node::new(NodeKind::ArrayCreate, nv, None, self.pos(&t));
             self.stack.push(ca);
             return true;
         }
         false
     }
 
-    fn read_func_args(&mut self, func_name: &str, args: Vec<SysArg>, line: i64) -> Vec<Node> {
+    fn read_func_args(&mut self, func_name: &str, args: Vec<SysArg>, pos: NodePos) -> Vec<Node> {
         let mut arg_nodes = vec![];
         let mut err_msg = String::new();
         let mut sore_hokan = false;
@@ -757,7 +777,7 @@ impl Parser {
                     if !sore_hokan {
                         let sore_var = self.context.find_var_info("それ").unwrap_or(NodeVarInfo{level:1, no:0, name:String::from("それ")});
                         let sore_node = Node::new(NodeKind::GetVarGlobal,
-                            NodeValue::GetVar(sore_var), None, line, self.fileno);
+                            NodeValue::GetVar(sore_var), None, pos);
                         arg_nodes.push(sore_node);
                         sore_hokan = true;
                         continue;
@@ -772,7 +792,7 @@ impl Parser {
         if err_msg.ne("") {
             self.context.throw_error(
                 NodeErrorKind::ParserError, NodeErrorLevel::Error,
-                err_msg, line, self.fileno);    
+                err_msg, pos);    
         }
         arg_nodes
     }
@@ -802,17 +822,17 @@ impl Parser {
                     NodeValue::CallFunc(name, no, _) => {
                         match meta.kind {
                             NodeVarKind::SysFunc(args) => {
-                                let nodes = self.read_func_args(&name, args, word_t.start);
+                                let nodes = self.read_func_args(&name, args, self.pos(&word_t));
                                 let sys_func_node = Node::new(
                                     NodeKind::CallSysFunc, NodeValue::CallFunc(name, no, nodes), 
-                                    word_t.josi, word_t.start, self.fileno);
+                                    word_t.josi.clone(), self.pos(&word_t));
                                 sys_func_node
                             },
                             NodeVarKind::UserFunc(args) => {
-                                let nodes = self.read_func_args(&name, args, word_t.start);
+                                let nodes = self.read_func_args(&name, args, self.pos(&word_t));
                                 let user_func_node = Node::new(
                                     NodeKind::CallUserFunc, NodeValue::CallFunc(name, no, nodes), 
-                                    word_t.josi, word_t.start, self.fileno);
+                                    word_t.josi.clone(), self.pos(&word_t));
                                     user_func_node
                             },
                             _ => return false,
@@ -824,7 +844,7 @@ impl Parser {
                         let var_node = Node::new(
                             NodeKind::GetVarGlobal,
                             NodeValue::GetVar(info),
-                            word_t.josi, word_t.start, self.fileno);
+                            word_t.josi.clone(), self.pos(&word_t));
                         var_node
                     }
                 }
@@ -856,7 +876,7 @@ impl Parser {
                 }
                 break;
             }
-            let ref_node = Node::new(NodeKind::ArrayRef, NodeValue::NodeList(index_vec), None, t.start, self.fileno);
+            let ref_node = Node::new(NodeKind::ArrayRef, NodeValue::NodeList(index_vec), None, self.pos(&t));
             self.stack.push(ref_node);
         } else {
             self.stack.push(node);
@@ -892,10 +912,10 @@ impl Parser {
                     let value_b = op.nodes.pop().unwrap();
                     let new_node = Node::new_operator(
                         op.flag,
-                        Node::new_operator(cur_flag, value_a, value_b, None, value_c.line, value_c.fileno),
+                        Node::new_operator(cur_flag, value_a, value_b, None, value_c.pos),
                         value_c,
                         c_josi,
-                        op_t.start, self.fileno);
+                        self.pos(&op_t));
                     self.stack.push(new_node);
                 },
                 NodeValue::CallFunc(name, no, nodes) => {
@@ -905,7 +925,7 @@ impl Parser {
                         value_a,
                         value_b,
                         c_josi,
-                        op_t.start, self.fileno);
+                        self.pos(&op_t));
                     nodes.insert(0, op_node);
                     value_bc.value = NodeValue::CallFunc(name.clone(), *no, nodes.clone());
                     self.stack.push(value_bc);
@@ -918,7 +938,7 @@ impl Parser {
         let op_node = Node::new_operator(
             cur_flag, value_a, value_bc,
             c_josi, 
-            op_t.start, self.fileno
+            self.pos(&op_t)
         );
         self.stack.push(op_node);
         return true;
@@ -1005,9 +1025,13 @@ impl Parser {
         };
         // 「それで戻る」を最後に足す ← TODO: うまく「それ」が追加されていない
         let sore_var = self.context.find_var_info("それ").unwrap_or(NodeVarInfo{level:2, no:0, name:String::from("それ")});
-        let sore_node = Node::new(NodeKind::GetVarGlobal,
-            NodeValue::GetVar(sore_var), None, name_t.start, self.fileno);
-        let ret_node = Node::new(NodeKind::Return, NodeValue::NodeList(vec![sore_node]), None, name_t.start, self.fileno);
+        let sore_node = Node::new(
+            NodeKind::GetVarGlobal,
+            NodeValue::GetVar(sore_var), None, 
+            self.pos(&name_t));
+        let ret_node = Node::new(
+            NodeKind::Return, NodeValue::NodeList(vec![sore_node]), None, 
+            self.pos(&name_t));
         body_nodes.push(ret_node);
         // BlockEnd判定
         if self.cur.eq_kind(TokenKind::BlockEnd) {
@@ -1018,7 +1042,12 @@ impl Parser {
         // 関数本体を変数に登録
         let func_value: NodeValue = NodeValue::CallFunc(name_s.clone(), no, body_nodes);
         self.context.scopes.set_value(1, &name_s, func_value);
-        Some(Node::new(NodeKind::Comment, NodeValue::S(format!("関数『{}』の定義", name_s)), None, def_t.start, self.fileno))
+        Some(
+            Node::new(
+                NodeKind::Comment, NodeValue::S(format!("関数『{}』の定義", name_s)), None, 
+                self.pos(&def_t)
+            )
+        )
     }
 }
 

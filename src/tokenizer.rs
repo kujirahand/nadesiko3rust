@@ -27,7 +27,7 @@ pub fn tokenize(src: &str) -> Vec<Token> {
                     let mut t2 = t.clone();
                     t2.josi = None;
                     result.push(t2);
-                    result.push(Token::new_char(TokenKind::Eq, '=', t.start, t.end));
+                    result.push(Token::new_char(TokenKind::Eq, '=', t.pos));
                     last_is_eq = true;
                     continue;
                 }    
@@ -144,8 +144,7 @@ fn flag_push(kind: TokenKind, result: &mut Vec<Token>, cur: &mut StrCur) {
         kind,
         value: NValue::from_char(cur.next()),
         josi: None,
-        start,
-        end: start + 1,
+        pos: TokenPos::new(start, start + 1),
     };
     result.push(tok);
 }
@@ -157,8 +156,7 @@ fn flag_push_josi(kind: TokenKind, result: &mut Vec<Token>, cur: &mut StrCur) {
         kind,
         value: NValue::from_char(label),
         josi: josi_opt,
-        start,
-        end: start + 1,
+        pos: TokenPos::new(start, start + 1),
     };
     result.push(tok);   
 }
@@ -171,8 +169,7 @@ fn flag_push_n(kind: TokenKind, flag_ch: char, result: &mut Vec<Token>, cur: &mu
         kind,
         value: NValue::from_char(flag_ch),
         josi: None,
-        start,
-        end,
+        pos: TokenPos::new(start, end),
     };
     result.push(tok);
 }
@@ -180,7 +177,7 @@ fn flag_push_n(kind: TokenKind, flag_ch: char, result: &mut Vec<Token>, cur: &mu
 fn read_lf(cur: &mut StrCur) -> Token {
     let start = cur.get_index_i();
     let lf = cur.next();
-    Token::new_char(TokenKind::Eol, lf, start, start + 1)
+    Token::new_char(TokenKind::Eol, lf, TokenPos::new(start, start + 1))
 }
 
 fn read_linecomment(cur: &mut StrCur) -> Token {
@@ -188,7 +185,7 @@ fn read_linecomment(cur: &mut StrCur) -> Token {
     cur.seek(1); // skip "※"
     let rem = cur.get_token_tostr('\n');
     let end = cur.get_index() as i64;
-    let tok = Token::new(TokenKind::Comment, NValue::String(rem), None, start, end);
+    let tok = Token::new(TokenKind::Comment, NValue::String(rem), None, TokenPos::new(start, end));
     return tok;
 }
 
@@ -199,7 +196,7 @@ fn read_slash(cur: &mut StrCur) -> Token {
         cur.seek(2); // skip "//"
         let rem = cur.get_token_tostr('\n');
         let end = cur.get_index_i();
-        let tok = Token::new_str(TokenKind::Comment, &rem, start, end);
+        let tok = Token::new_str(TokenKind::Comment, &rem, TokenPos::new(start, end));
         return tok;
     }
     // range comment
@@ -209,14 +206,14 @@ fn read_slash(cur: &mut StrCur) -> Token {
         let rem = cur.get_token_str("*/");
         let end = cur.get_index_i();
         let rem_s: String = rem.iter().collect();
-        let tok = Token::new_str(TokenKind::Comment, &rem_s, start, end);
+        let tok = Token::new_str(TokenKind::Comment, &rem_s, TokenPos::new(start, end));
         return tok;
     }
     // flag
     let start = cur.get_index_i();
     let flag = cur.next();
     let end = cur.get_index_i();
-    return Token::new_char(TokenKind::Div, flag, start, end);
+    return Token::new_char(TokenKind::Div, flag, TokenPos::new(start, end));
 }
 
 fn read_number(cur: &mut StrCur) -> Token {
@@ -235,14 +232,14 @@ fn read_number(cur: &mut StrCur) -> Token {
         let josi_opt = josi_list::read_josi(cur);
         let end = cur.get_index_i();
         let nv = NValue::from_float(NValue::from_string(num_s).to_float_def(0.0));
-        return Token::new(TokenKind::Number, nv, josi_opt, start, end);
+        return Token::new(TokenKind::Number, nv, josi_opt, TokenPos::new(start, end));
     }
     // int value
     let num_s: String = vc.iter().collect();
     let josi_opt = josi_list::read_josi(cur);
     let end = cur.get_index_i();
     let nv = NValue::from_int(NValue::from_string(num_s).to_int_def(0));
-    return Token::new(TokenKind::Int, nv, josi_opt, start, end);
+    return Token::new(TokenKind::Int, nv, josi_opt, TokenPos::new(start, end));
 }
 
 fn check_special(result: &mut Vec<Token>, cur: &mut StrCur, word: &str, kind: TokenKind, reg_word: &str) -> bool {
@@ -251,7 +248,7 @@ fn check_special(result: &mut Vec<Token>, cur: &mut StrCur, word: &str, kind: To
         let len = word.chars().count();
         cur.seek(len as i64);
         let end = cur.get_index_i();
-        let tok = Token::new_str(kind, reg_word, start, end);
+        let tok = Token::new_str(kind, reg_word, TokenPos::new(start, end));
         result.push(tok);
         return true;
     }
@@ -313,13 +310,13 @@ fn read_word(result: &mut Vec<Token>, cur: &mut StrCur) -> bool {
         let word_s: String = word.iter().collect();
         let kind = reserved_words::check_kind(&word_s);
         let end = cur.get_index_i();
-        let tok = Token::new(kind, NValue::from_string(word_s), josi_opt, start, end);
+        let tok = Token::new(kind, NValue::from_string(word_s), josi_opt, TokenPos::new(start, end));
         result.push(tok);
     }
     //　回を追加
     if has_kai {
         let end = cur.get_index_i();
-        let kai_tok = Token::new(TokenKind::Kai, NValue::from_str("回"), None, start, end);
+        let kai_tok = Token::new(TokenKind::Kai, NValue::from_str("回"), None, TokenPos::new(start, end));
         result.push(kai_tok);
     }
     true
@@ -370,7 +367,7 @@ fn read_string(result: &mut Vec<Token>, cur: &mut StrCur, end_flag: char, ex_str
         extract_string_ex(result, label, josi_opt, start);
     } else {
         let end = cur.get_index_i();
-        let tok = Token::new(TokenKind::String, NValue::String(label), josi_opt, start, end);
+        let tok = Token::new(TokenKind::String, NValue::String(label), josi_opt, TokenPos::new(start, end));
         result.push(tok);
     }
 }
@@ -386,14 +383,14 @@ fn extract_string_ex(result: &mut Vec<Token>, src: String, josi_opt:Option<Strin
                 last_index = index + 1;
                 let list = tokenize_src(&code, last_index as i64 + start);
                 if list.len() > 0 {
-                    let end = list[list.len() - 1].end;
-                    result.push(Token::new(TokenKind::PlusStr, NValue::from_char('結'), None, list[0].start, end));
-                    result.push(Token::new(TokenKind::ParenL, NValue::from_char('('), None, list[0].start, list[0].end));
+                    let end = list[list.len() - 1].pos.end;
+                    result.push(Token::new(TokenKind::PlusStr, NValue::from_char('結'), None, TokenPos::new(list[0].pos.start, end)));
+                    result.push(Token::new(TokenKind::ParenL, NValue::from_char('('), None, TokenPos::new(list[0].pos.start, list[0].pos.end)));
                     for t in list.into_iter() {
                         result.push(t);
                     }
-                    result.push(Token::new(TokenKind::ParenR, NValue::from_char(')'), None, end, end));
-                    result.push(Token::new(TokenKind::PlusStr, NValue::from_char('結'), None, end, end));
+                    result.push(Token::new(TokenKind::ParenR, NValue::from_char(')'), None, TokenPos::new(end, end)));
+                    result.push(Token::new(TokenKind::PlusStr, NValue::from_char('結'), None, TokenPos::new(end, end)));
                     is_extract = false;
                 }
                 continue;
@@ -404,14 +401,16 @@ fn extract_string_ex(result: &mut Vec<Token>, src: String, josi_opt:Option<Strin
         if c == '{' || c == '｛' {
             is_extract = true;
             let end = index as i64;
-            result.push(Token::new(TokenKind::String, NValue::String(data), None, start + last_index as i64, start + end));
+            result.push(Token::new(
+                TokenKind::String, NValue::String(data), None, TokenPos::new(start + last_index as i64, start + end)));
             data = String::new();
             continue;
         }
         data.push(c);
     }
     let src_len = src.chars().count() as i64;
-    result.push(Token::new(TokenKind::String, NValue::String(data), josi_opt.clone(), start + last_index as i64, start + src_len));
+    result.push(Token::new(TokenKind::String, NValue::String(data), josi_opt.clone(),
+        TokenPos::new(start + last_index as i64, start + src_len)));
 }
 
 
