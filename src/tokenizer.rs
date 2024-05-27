@@ -1,4 +1,4 @@
-//! 軸解析器
+//! 字句解析器
 
 use crate::prepare;
 use crate::strcur::StrCur;
@@ -16,7 +16,7 @@ pub struct Tokenizer {
 
 impl Tokenizer {
     /// 新しいインスタンスを生成する
-    pub fn new(src: &str, fileno: u32) -> Tokenizer {
+    pub fn new(src: &str, fileno: i32) -> Tokenizer {
         let src = prepare::convert(src, fileno);
         Tokenizer {
             cur: StrCur::from(&src, fileno),
@@ -167,15 +167,15 @@ impl Tokenizer {
         let josi_opt = josi_list::read_josi(cur);
         let label = res.iter().collect();
         if ex_str {
-            self.extract_string_ex(result, label, josi_opt, start);
+            self.extract_string_ex(result, label, josi_opt, start, cur.fileno);
         } else {
             let end = cur.get_index_i();
-            let tok = Token::new(TokenKind::String, NValue::String(label), josi_opt, TokenPos::new(start, end));
+            let tok = Token::new(TokenKind::String, NValue::String(label), josi_opt, TokenPos::new(start, end, cur.fileno));
             result.push(tok);
         }
     }
 
-    fn extract_string_ex(&self, result: &mut Vec<Token>, src: String, josi_opt:Option<String>, start: i64) {
+    fn extract_string_ex(&self, result: &mut Vec<Token>, src: String, josi_opt:Option<String>, start: i32, fileno: i32) {
         let mut data = String::new();
         let mut code = String::new();
         let mut is_extract = false;
@@ -184,18 +184,19 @@ impl Tokenizer {
             if is_extract {
                 if c == '}' || c == '｝' {
                     last_index = index + 1;
-                    let mut toknizer = Tokenizer::new(&code, 0);
-                    toknizer.cur.top_index = (start + last_index as i64) as i64;
+                    let mut toknizer = Tokenizer::new(&code, fileno);
+                    toknizer.cur.top_index = (start + last_index as i32) as i32;
                     let list = toknizer.tokenize();
                     if list.len() > 0 {
-                        let end = list[list.len() - 1].pos.end;
-                        result.push(Token::new(TokenKind::PlusStr, NValue::from_char('結'), None, TokenPos::new(list[0].pos.start, end)));
-                        result.push(Token::new(TokenKind::ParenL, NValue::from_char('('), None, TokenPos::new(list[0].pos.start, list[0].pos.end)));
+                        let pos = list[0].pos;
+                        let end_pos = list[list.len() - 1].pos.clone();
+                        result.push(Token::new(TokenKind::PlusStr, NValue::from_char('結'), None, pos));
+                        result.push(Token::new(TokenKind::ParenL, NValue::from_char('('), None, pos));
                         for t in list.into_iter() {
                             result.push(t);
                         }
-                        result.push(Token::new(TokenKind::ParenR, NValue::from_char(')'), None, TokenPos::new(end, end)));
-                        result.push(Token::new(TokenKind::PlusStr, NValue::from_char('結'), None, TokenPos::new(end, end)));
+                        result.push(Token::new(TokenKind::ParenR, NValue::from_char(')'), None, end_pos));
+                        result.push(Token::new(TokenKind::PlusStr, NValue::from_char('結'), None, end_pos));
                         is_extract = false;
                     }
                     continue;
@@ -205,17 +206,22 @@ impl Tokenizer {
             }
             if c == '{' || c == '｛' {
                 is_extract = true;
-                let end = index as i64;
+                let end = index as i32;
+                let begin_pos = TokenPos::new(start + last_index as i32, start + end, fileno);
                 result.push(Token::new(
-                    TokenKind::String, NValue::String(data), None, TokenPos::new(start + last_index as i64, start + end)));
+                    TokenKind::String,
+                    NValue::String(data), None,
+                    begin_pos));
                 data = String::new();
                 continue;
             }
             data.push(c);
         }
         let src_len = src.chars().count() as i64;
-        result.push(Token::new(TokenKind::String, NValue::String(data), josi_opt.clone(),
-            TokenPos::new(start + last_index as i64, start + src_len)));
+        result.push(
+            Token::new(
+                TokenKind::String, NValue::String(data), josi_opt.clone(), TokenPos::new(start + last_index as i32, start + src_len as i32, fileno)
+            ));
     }
 
 }
@@ -228,19 +234,19 @@ fn flag_push(kind: TokenKind, result: &mut Vec<Token>, cur: &mut StrCur) {
         kind,
         value: NValue::from_char(cur.next()),
         josi: None,
-        pos: TokenPos::new(start, start + 1),
+        pos: TokenPos::new(start, start + 1, cur.fileno),
     };
     result.push(tok);
 }
 fn flag_push_josi(kind: TokenKind, result: &mut Vec<Token>, cur: &mut StrCur) {
-    let start = cur.get_index() as i64;
+    let start = cur.get_index_i();
     let label = cur.next();
     let josi_opt = josi_list::read_josi(cur);
     let tok = Token {
         kind,
         value: NValue::from_char(label),
         josi: josi_opt,
-        pos: TokenPos::new(start, start + 1),
+        pos: TokenPos::new(start, start + 1, cur.fileno),
     };
     result.push(tok);   
 }
@@ -253,7 +259,7 @@ fn flag_push_n(kind: TokenKind, flag_ch: char, result: &mut Vec<Token>, cur: &mu
         kind,
         value: NValue::from_char(flag_ch),
         josi: None,
-        pos: TokenPos::new(start, end),
+        pos: TokenPos::new(start, end, cur.fileno),
     };
     result.push(tok);
 }
@@ -261,15 +267,15 @@ fn flag_push_n(kind: TokenKind, flag_ch: char, result: &mut Vec<Token>, cur: &mu
 fn read_lf(cur: &mut StrCur) -> Token {
     let start = cur.get_index_i();
     let lf = cur.next();
-    Token::new_char(TokenKind::Eol, lf, TokenPos::new(start, start + 1))
+    Token::new_char(TokenKind::Eol, lf, TokenPos::new(start, start + 1, cur.fileno))
 }
 
 fn read_linecomment(cur: &mut StrCur) -> Token {
-    let start = cur.get_index() as i64;
+    let start = cur.get_index_i();
     cur.seek(1); // skip "※"
     let rem = cur.get_token_tostr('\n');
-    let end = cur.get_index() as i64;
-    let tok = Token::new(TokenKind::Comment, NValue::String(rem), None, TokenPos::new(start, end));
+    let end = cur.get_index_i();
+    let tok = Token::new(TokenKind::Comment, NValue::String(rem), None, TokenPos::new(start, end, cur.fileno));
     return tok;
 }
 
@@ -280,7 +286,7 @@ fn read_slash(cur: &mut StrCur) -> Token {
         cur.seek(2); // skip "//"
         let rem = cur.get_token_tostr('\n');
         let end = cur.get_index_i();
-        let tok = Token::new_str(TokenKind::Comment, &rem, TokenPos::new(start, end));
+        let tok = Token::new_str(TokenKind::Comment, &rem, TokenPos::new(start, end, cur.fileno));
         return tok;
     }
     // range comment
@@ -290,14 +296,14 @@ fn read_slash(cur: &mut StrCur) -> Token {
         let rem = cur.get_token_str("*/");
         let end = cur.get_index_i();
         let rem_s: String = rem.iter().collect();
-        let tok = Token::new_str(TokenKind::Comment, &rem_s, TokenPos::new(start, end));
+        let tok = Token::new_str(TokenKind::Comment, &rem_s, TokenPos::new(start, end, cur.fileno));
         return tok;
     }
     // flag
     let start = cur.get_index_i();
     let flag = cur.next();
     let end = cur.get_index_i();
-    return Token::new_char(TokenKind::Div, flag, TokenPos::new(start, end));
+    return Token::new_char(TokenKind::Div, flag, TokenPos::new(start, end, cur.fileno));
 }
 
 fn read_number(cur: &mut StrCur) -> Token {
@@ -316,14 +322,14 @@ fn read_number(cur: &mut StrCur) -> Token {
         let josi_opt = josi_list::read_josi(cur);
         let end = cur.get_index_i();
         let nv = NValue::from_float(NValue::from_string(num_s).to_float_def(0.0));
-        return Token::new(TokenKind::Number, nv, josi_opt, TokenPos::new(start, end));
+        return Token::new(TokenKind::Number, nv, josi_opt, TokenPos::new(start, end, cur.fileno));
     }
     // int value
     let num_s: String = vc.iter().collect();
     let josi_opt = josi_list::read_josi(cur);
     let end = cur.get_index_i();
     let nv = NValue::from_int(NValue::from_string(num_s).to_int_def(0));
-    return Token::new(TokenKind::Int, nv, josi_opt, TokenPos::new(start, end));
+    return Token::new(TokenKind::Int, nv, josi_opt, TokenPos::new(start, end, cur.fileno));
 }
 
 fn check_special(result: &mut Vec<Token>, cur: &mut StrCur, word: &str, kind: TokenKind, reg_word: &str) -> bool {
@@ -332,7 +338,7 @@ fn check_special(result: &mut Vec<Token>, cur: &mut StrCur, word: &str, kind: To
         let len = word.chars().count();
         cur.seek(len as i64);
         let end = cur.get_index_i();
-        let tok = Token::new_str(kind, reg_word, TokenPos::new(start, end));
+        let tok = Token::new_str(kind, reg_word, TokenPos::new(start, end, cur.fileno));
         result.push(tok);
         return true;
     }
@@ -394,13 +400,13 @@ fn read_word(result: &mut Vec<Token>, cur: &mut StrCur) -> bool {
         let word_s: String = word.iter().collect();
         let kind = reserved_words::check_kind(&word_s);
         let end = cur.get_index_i();
-        let tok = Token::new(kind, NValue::from_string(word_s), josi_opt, TokenPos::new(start, end));
+        let tok = Token::new(kind, NValue::from_string(word_s), josi_opt, TokenPos::new(start, end, cur.fileno));
         result.push(tok);
     }
     //　回を追加
     if has_kai {
         let end = cur.get_index_i();
-        let kai_tok = Token::new(TokenKind::Kai, NValue::from_str("回"), None, TokenPos::new(start, end));
+        let kai_tok = Token::new(TokenKind::Kai, NValue::from_str("回"), None, TokenPos::new(start, end, cur.fileno));
         result.push(kai_tok);
     }
     true
@@ -452,18 +458,26 @@ mod test_tokenizer {
     fn test_tokenize() {
         let t = tokenize("//abc");
         assert_eq!(tokens_string(&t), "[Comment:abc]");
+        assert_eq!(tokens_string_pos(&t), "[Comment:abc](0,5)");
         let t = tokenize("//abc\n\n/*ABC*/");
         assert_eq!(tokens_string(&t), "[Comment:abc][Eol][Comment:ABC]");
         let t = tokenize("3\n3.14");
         assert_eq!(tokens_string(&t), "[Int:3][Eol][Number:3.14]");
+        assert_eq!(tokens_string_pos(&t), "[Int:3](0,1)[Eol](1,2)[Number:3.14](2,6)");
         let t = tokenize("hoge=35");
         assert_eq!(tokens_string(&t), "[Word:hoge][=][Int:35]");
+        assert_eq!(tokens_string_pos(&t), "[Word:hoge](0,4)[=](4,5)[Int:35](5,7)");
         let t = tokenize("年齢=15");
         assert_eq!(tokens_string(&t), "[Word:年齢][=][Int:15]");
-        // let t = tokenize("(3.0)");
-        // assert_eq!(tokens_string(&t), "[(][Number:3.0][)]");
+        assert_eq!(tokens_string_pos(&t), "[Word:年齢](0,2)[=](2,3)[Int:15](3,5)");
+        let t = tokenize("(3.2)");
+        assert_eq!(tokens_string(&t), "[(][Number:3.2][)]");
         let t = tokenize("A=3*5");
         assert_eq!(tokens_string(&t), "[Word:A][=][Int:3][*][Int:5]");
+        assert_eq!(tokens_string_pos(&t), "[Word:A](0,1)[=](1,2)[Int:3](2,3)[*](3,4)[Int:5](4,5)");
+        let t = tokenize("A = 3 * 5");
+        assert_eq!(tokens_string(&t), "[Word:A][=][Int:3][*][Int:5]");
+        assert_eq!(tokens_string_pos(&t), "[Word:A](0,1)[=](2,3)[Int:3](4,5)[*](6,7)[Int:5](8,9)");
     }
     #[test]
     fn test_tokenize_josi() {

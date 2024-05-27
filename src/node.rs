@@ -34,9 +34,9 @@ pub enum NodeKind {
 /// ソースコード情報を表す構造体
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct NodePos {
-    pub start: i64,
-    pub end: i64,
-    pub fileno: u32,
+    pub start: i32,
+    pub end: i32,
+    pub fileno: i32,
 }
 impl NodePos {
     pub fn empty() -> Self {
@@ -46,7 +46,7 @@ impl NodePos {
             fileno: 0,
         }
     }
-    pub fn new(start: i64, end: i64, fileno: u32) -> Self {
+    pub fn new(start: i32, end: i32, fileno: i32) -> Self {
         NodePos {
             start,
             end,
@@ -590,19 +590,19 @@ impl NodeContext {
         }
     }
     // for file management
-    pub fn set_filename(&mut self, filename: &str) -> u32 {
+    pub fn set_filename(&mut self, filename: &str) -> i32 {
         match self.find_files(filename) {
             Some(fileno) => fileno,
             None => {
-                let fileno = self.files.len() as u32;
+                let fileno = self.files.len() as i32;
                 self.files.push(filename.to_string());
                 fileno
             },
         }
     }
-    pub fn find_files(&self, filename: &str) -> Option<u32> {
+    pub fn find_files(&self, filename: &str) -> Option<i32> {
         for (i, fname) in self.files.iter().enumerate() {
-            if fname == filename { return Some(i as u32); }
+            if fname == filename { return Some(i as i32); }
         }
         None
     }

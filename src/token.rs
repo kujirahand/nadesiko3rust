@@ -53,15 +53,19 @@ pub enum TokenKind {
 }
 
 /// トークンのソースコード情報を表現する構造体
-#[derive(Debug,Clone)]
+#[derive(Debug,Clone,Copy,PartialEq)]
 pub struct TokenPos {
-    pub start: i64,
-    pub end: i64,
+    pub start: i32,
+    pub end: i32,
+    pub fileno: i32,
 }
 
 impl TokenPos {
-    pub fn new(start: i64, end: i64) -> Self {
-        Self { start, end }
+    pub fn new(start: i32, end: i32, fileno: i32) -> Self {
+        Self { start, end, fileno }
+    }
+    pub fn to_string(&self) -> String {
+        format!("({},{})", self.start, self.end)
     }
 }
 
@@ -81,7 +85,7 @@ impl Token {
     }
     /// new empty token
     pub fn new_empty() -> Self {
-        Self::new(TokenKind::None, NValue::Empty, None, TokenPos::new(0, 0))
+        Self::new(TokenKind::None, NValue::Empty, None, TokenPos::new(0, 0, 0))
     }
     /// new token form char
     pub fn new_char(kind: TokenKind, label: char, pos: TokenPos) -> Self {
@@ -179,6 +183,16 @@ pub fn tokens_string(vt: &[Token]) -> String {
     let mut res = String::new();
     for tok in vt.iter() {
         let s = format!("[{}]", tok);
+        res.push_str(&s);
+    }
+    format!("{}", res)
+}
+
+#[allow(dead_code)]
+pub fn tokens_string_pos(vt: &[Token]) -> String {
+    let mut res = String::new();
+    for tok in vt.iter() {
+        let s = format!("[{}]{}", tok, tok.pos.to_string());
         res.push_str(&s);
     }
     format!("{}", res)

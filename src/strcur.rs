@@ -8,16 +8,16 @@ pub struct StrCur {
     pub src: Vec<char>,
     length: usize, // private : user can not change
     index: usize,
-    pub top_index: i64, // カーソルの途中からインデックスを取得するためのもの
-    pub fileno: u32,
+    pub top_index: i32, // カーソルの途中からインデックスを取得するためのもの
+    pub fileno: i32,
 }
 
 #[allow(dead_code)]
 impl StrCur {
-    pub fn from(src: &str, fileno: u32) -> Self {
+    pub fn from(src: &str, fileno: i32) -> Self {
         Self::from_source(src, 0, fileno)
     }
-    pub fn from_source(src: &str, top_index: i64, fileno: u32) -> Self {
+    pub fn from_source(src: &str, top_index: i32, fileno: i32) -> Self {
         let vc:Vec<char> = src.chars().collect();
         let len = vc.len();
         Self {
@@ -60,10 +60,10 @@ impl StrCur {
         self.index = index;
     }
     pub fn get_index(&mut self) -> usize {
-        (self.index as i64 + self.top_index) as usize
+        (self.index as i32 + self.top_index) as usize
     }
-    pub fn get_index_i(&mut self) -> i64 {
-        (self.index as i64 + self.top_index) as i64
+    pub fn get_index_i(&mut self) -> i32 {
+        (self.index as i32 + self.top_index) as i32
     }
     pub fn peek_half(&self) -> char {
         let ch = self.peek();

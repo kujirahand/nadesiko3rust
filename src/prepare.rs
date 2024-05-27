@@ -3,7 +3,7 @@
 use crate::kanautils;
 use crate::strcur::StrCur;
 
-pub fn convert(src: &str, fileno: u32) -> String {
+pub fn convert(src: &str, fileno: i32) -> String {
     let mut result = String::new();
     let mut cur = StrCur::from(src, fileno);
     let mut is_str = false;

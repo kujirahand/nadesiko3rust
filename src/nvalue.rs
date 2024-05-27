@@ -452,4 +452,11 @@ mod test_runner {
         let c = a.div_int_value(b);
         assert_eq!(c.to_int_def(0), 3);
     }
+    #[test]
+    fn test_nvalue_to_string() {
+        let v = NValue::from_int(10);
+        assert_eq!(v.to_string(), "10");
+        let v = NValue::from_float(10.0);
+        assert_eq!(v.to_string(), "10");
+    }
 }

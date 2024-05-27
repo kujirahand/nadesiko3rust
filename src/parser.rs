@@ -10,7 +10,7 @@ use crate::josi_list;
 pub struct Parser {
     pub context: NodeContext,
     cur: TokenCur,
-    fileno: u32,
+    fileno: i32,
     stack: Vec<Node>,
 }
 impl Parser {

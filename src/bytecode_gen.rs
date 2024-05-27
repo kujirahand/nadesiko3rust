@@ -7,7 +7,7 @@ use std::collections::HashMap;
 #[derive(Debug,Clone)]
 pub enum Bytecode {
     Nop,
-    DebugInfo(i64, i64, u32, String), // (start, end, fileno, comment)
+    DebugInfo(i32, i32, i32, String), // (start, end, fileno, comment)
     Label(String),
     ConstInt(isize), // push:1
     ConstFloat(f64), // push:1
