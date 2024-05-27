@@ -73,10 +73,10 @@ mod test_josi {
     #[test]
     fn is_josi_test() {
         // 文字はUTF-8の
-        let mut cur = StrCur::from("について");
+        let mut cur = StrCur::from("について", 0);
         assert_eq!(read_josi(&mut cur), Some(String::from("について")));
         //
-        let mut cur = StrCur::from("Aでなければ");
+        let mut cur = StrCur::from("Aでなければ", 0);
         assert_eq!(read_josi(&mut cur), None);
         cur.next(); // skip A
         assert_eq!(read_josi(&mut cur), Some(String::from("でなければ")));

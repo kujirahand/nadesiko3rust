@@ -8,134 +8,218 @@ use crate::reserved_words;
 use crate::token::*;
 use crate::nvalue::NValue;
 
-/// 文字列をトークンに区切る
-pub fn tokenize(src: &str) -> Vec<Token> {
-    // 普通にトークンに区切る
-    let tok: Vec<Token> = tokenize_src(src, 1);
-    
-    // 助詞の「は」を＝に展開する
-    let mut last_is_eq = false;
-    let mut result: Vec<Token> = vec![];
-    for t in tok.into_iter() {
-        if last_is_eq {
-            last_is_eq = false;
-            if t.kind == TokenKind::Comma { continue; } // 「Aは,1」のような場合にカンマを飛ばす
-        }
-        match &t.josi {
-            Some(j) => {
-                if j.eq("は") {
-                    let mut t2 = t.clone();
-                    t2.josi = None;
-                    result.push(t2);
-                    result.push(Token::new_char(TokenKind::Eq, '=', t.pos));
-                    last_is_eq = true;
-                    continue;
-                }    
-            }
-            None => {},
-        }
-        result.push(t);
-    }
-    result
+#[derive(Debug, Clone)]
+pub struct Tokenizer {
+    pub cur: StrCur,
+    pub tokens: Vec<Token>,
 }
 
-pub fn tokenize_src(src: &str, top_start: i64) -> Vec<Token> {
-    let src = prepare::convert(src);
-    let mut cur = StrCur::from_source(&src, top_start as usize);
-    let mut result: Vec<Token> = vec![];
-    while cur.can_read() {
-        if cur.skip_space() { continue; }
-        let ch = cur.peek();
-        match ch {
-            '\n' => { result.push(read_lf(&mut cur)); continue; },
-            ';' => {
-                if cur.eq_str(";;;") { // 「。。。」と「ここまで」は同じ意味
-                    flag_push_n(TokenKind::BlockEnd, ';', &mut result, &mut cur, 3);
+impl Tokenizer {
+    /// 新しいインスタンスを生成する
+    pub fn new(src: &str, fileno: u32) -> Tokenizer {
+        let src = prepare::convert(src, fileno);
+        Tokenizer {
+            cur: StrCur::from(&src, fileno),
+            tokens: vec![],
+        }
+    }
+    /// 文字列をトークンに区切る
+    pub fn tokenize(&mut self) -> Vec<Token> {
+        // 普通にトークンに区切る
+        let tok: Vec<Token> = self.tokenize_src();
+
+        // 助詞の「は」を＝に展開する
+        let mut last_is_eq = false;
+        let mut result: Vec<Token> = vec![];
+        for t in tok.into_iter() {
+            if last_is_eq {
+                last_is_eq = false;
+                if t.kind == TokenKind::Comma { continue; } // 「Aは,1」のような場合にカンマを飛ばす
+            }
+            match &t.josi {
+                Some(j) => {
+                    if j.eq("は") {
+                        let mut t2 = t.clone();
+                        t2.josi = None;
+                        result.push(t2);
+                        result.push(Token::new_char(TokenKind::Eq, '=', t.pos));
+                        last_is_eq = true;
+                        continue;
+                    }    
+                }
+                None => {},
+            }
+            result.push(t);
+        }
+        result
+    }
+
+    fn tokenize_src(&mut self) -> Vec<Token> {
+        let mut cur = self.cur.clone();
+        let mut result: Vec<Token> = vec![];
+        while cur.can_read() {
+            if cur.skip_space() { continue; }
+            let ch = cur.peek();
+            match ch {
+                '\n' => { result.push(read_lf(&mut cur)); continue; },
+                ';' => {
+                    if cur.eq_str(";;;") { // 「。。。」と「ここまで」は同じ意味
+                        flag_push_n(TokenKind::BlockEnd, ';', &mut result, &mut cur, 3);
+                        continue;
+                    }
+                    flag_push(TokenKind::Eol, &mut result, &mut cur); continue;
+                },
+                '💧' => { flag_push(TokenKind::BlockEnd, &mut result, &mut cur); continue; }
+                ',' => { flag_push(TokenKind::Comma, &mut result, &mut cur); continue; },
+                '/' => { result.push(read_slash(&mut cur)); continue; },
+                '※' => { result.push(read_linecomment(&mut cur)); continue; },
+                '#' => { result.push(read_linecomment(&mut cur)); continue; },
+                // 文字列記号
+                '「' => { self.read_string(&mut result, &mut cur, '」', true); continue; }
+                '『' => { self.read_string(&mut result, &mut cur, '』', false); continue; }
+                '"' => { self.read_string(&mut result, &mut cur, '"', true); continue; }
+                '\'' => { self.read_string(&mut result, &mut cur, '\'', false); continue; }
+                //各種カッコ
+                '(' => { flag_push(TokenKind::ParenL, &mut result, &mut cur); continue; },
+                ')' => { flag_push_josi(TokenKind::ParenR, &mut result, &mut cur); continue; },
+                '[' => { flag_push(TokenKind::BracketL, &mut result, &mut cur); continue; },
+                ']' => { flag_push_josi(TokenKind::BracketR, &mut result, &mut cur); continue; },
+                '{' => { flag_push(TokenKind::CurBracketL, &mut result, &mut cur); continue; },
+                '}' => { flag_push_josi(TokenKind::CurBracketR, &mut result, &mut cur); continue; },
+                // 演算子
+                '+' => { flag_push(TokenKind::Plus, &mut result, &mut cur); continue; },
+                '-' => { flag_push(TokenKind::Minus, &mut result, &mut cur); continue; },
+                '*' => { flag_push(TokenKind::Mul, &mut result, &mut cur); continue; },
+                '×' => { flag_push_n(TokenKind::Mul, '*', &mut result, &mut cur, 1); continue; },
+                '÷' => { flag_push_n(TokenKind::Div, '/', &mut result, &mut cur, 1); continue; },
+                '%' => { flag_push(TokenKind::Mod, &mut result, &mut cur); continue; },
+                '^' => { flag_push(TokenKind::Pow, &mut result, &mut cur); continue; },
+                '\\' => { flag_push(TokenKind::Flag, &mut result, &mut cur); continue; },
+                '`' => { flag_push(TokenKind::Flag, &mut result, &mut cur); continue; },
+                '~' => { flag_push(TokenKind::Flag, &mut result, &mut cur); continue; },
+                '≧' => { flag_push(TokenKind::GtEq, &mut result, &mut cur); continue; },
+                '≦' => { flag_push(TokenKind::LtEq, &mut result, &mut cur); continue; },
+                '≠' => { flag_push(TokenKind::NotEq, &mut result, &mut cur); continue; },
+                '真' => { flag_push_josi(TokenKind::True, &mut result, &mut cur); continue; },
+                '偽' => { flag_push_josi(TokenKind::False, &mut result, &mut cur); continue; },
+                '=' => {
+                    if cur.eq_str("==") { flag_push_n(TokenKind::Eq, '=', &mut result, &mut cur, 2); }
+                    else { flag_push_n(TokenKind::Eq, '=', &mut result, &mut cur, 1); }
+                    continue; 
+                },
+                '&' => { 
+                    if cur.eq_str("&&") { flag_push_n(TokenKind::And, '&', &mut result, &mut cur, 2); }
+                    else { flag_push_n(TokenKind::PlusStr, '結', &mut result, &mut cur, 1); }
+                    continue; 
+                },
+                '|' => { 
+                    if cur.eq_str("||") { flag_push_n(TokenKind::Or, '|', &mut result, &mut cur, 2); }
+                    else { flag_push_n(TokenKind::Or, '|', &mut result, &mut cur, 1); }
+                    continue; 
+                },
+                '!' => {
+                    if cur.eq_str("!=") { flag_push_n(TokenKind::NotEq, '≠', &mut result, &mut cur, 2); }
+                    else { flag_push(TokenKind::Not, &mut result, &mut cur); }
+                    continue; 
+                },
+                '>' => {
+                    if cur.eq_str(">=") { flag_push_n(TokenKind::GtEq, '≧', &mut result, &mut cur, 2); }
+                    else if cur.eq_str("><") { flag_push_n(TokenKind::NotEq, '≠', &mut result, &mut cur, 2); cur.next(); }
+                    else { flag_push(TokenKind::Gt, &mut result, &mut cur); }
+                    continue;
+                },
+                '<' => {
+                    if cur.eq_str("<=") { flag_push_n(TokenKind::LtEq, '≦', &mut result, &mut cur, 2); }
+                    else if cur.eq_str("<>") { flag_push_n(TokenKind::NotEq, '≠', &mut result, &mut cur, 2); }
+                    else { flag_push(TokenKind::Lt, &mut result, &mut cur); }
+                    continue;
+                },
+                '●' => { flag_push(TokenKind::DefFunc, &mut result, &mut cur); continue; },
+                // '!'..='.' => { flag_push(TokenKind::Flag, &mut result, &mut cur); continue; },
+                // ':'..='@' => { flag_push(TokenKind::Flag, &mut result, &mut cur); continue; },
+                // 数値
+                '0'..='9' => { result.push(read_number(&mut cur)); continue; },
+                // word
+                'a'..='z' | 'A'..='Z' | '_' => { read_word(&mut result, &mut cur); continue; }
+                n if n > (0xE0 as char) => { read_word(&mut result, &mut cur); continue; }
+                _ => {} // pass
+            }
+            // pass
+            println!("[字句解析エラー]: 未定義の文字『{}』", ch);
+            cur.next();
+        }
+        self.cur = cur;
+        result
+    }
+
+    fn read_string(&self, result: &mut Vec<Token>, cur: &mut StrCur, end_flag: char, ex_str: bool) {
+        let start = cur.get_index_i();
+        cur.next(); // begin_flag
+        let mut res: Vec<char> = vec![];
+        while cur.can_read() {
+            let c = cur.next();
+            if c == end_flag {
+                break;
+            }
+            res.push(c);
+        }
+        // read josi
+        let josi_opt = josi_list::read_josi(cur);
+        let label = res.iter().collect();
+        if ex_str {
+            self.extract_string_ex(result, label, josi_opt, start);
+        } else {
+            let end = cur.get_index_i();
+            let tok = Token::new(TokenKind::String, NValue::String(label), josi_opt, TokenPos::new(start, end));
+            result.push(tok);
+        }
+    }
+
+    fn extract_string_ex(&self, result: &mut Vec<Token>, src: String, josi_opt:Option<String>, start: i64) {
+        let mut data = String::new();
+        let mut code = String::new();
+        let mut is_extract = false;
+        let mut last_index = 0;
+        for (index, c) in src.chars().enumerate() {
+            if is_extract {
+                if c == '}' || c == '｝' {
+                    last_index = index + 1;
+                    let mut toknizer = Tokenizer::new(&code, 0);
+                    toknizer.cur.top_index = (start + last_index as i64) as i64;
+                    let list = toknizer.tokenize();
+                    if list.len() > 0 {
+                        let end = list[list.len() - 1].pos.end;
+                        result.push(Token::new(TokenKind::PlusStr, NValue::from_char('結'), None, TokenPos::new(list[0].pos.start, end)));
+                        result.push(Token::new(TokenKind::ParenL, NValue::from_char('('), None, TokenPos::new(list[0].pos.start, list[0].pos.end)));
+                        for t in list.into_iter() {
+                            result.push(t);
+                        }
+                        result.push(Token::new(TokenKind::ParenR, NValue::from_char(')'), None, TokenPos::new(end, end)));
+                        result.push(Token::new(TokenKind::PlusStr, NValue::from_char('結'), None, TokenPos::new(end, end)));
+                        is_extract = false;
+                    }
                     continue;
                 }
-                flag_push(TokenKind::Eol, &mut result, &mut cur); continue;
-            },
-            '💧' => { flag_push(TokenKind::BlockEnd, &mut result, &mut cur); continue; }
-            ',' => { flag_push(TokenKind::Comma, &mut result, &mut cur); continue; },
-            '/' => { result.push(read_slash(&mut cur)); continue; },
-            '※' => { result.push(read_linecomment(&mut cur)); continue; },
-            '#' => { result.push(read_linecomment(&mut cur)); continue; },
-            // 文字列記号
-            '「' => { read_string(&mut result, &mut cur, '」', true); continue; }
-            '『' => { read_string(&mut result, &mut cur, '』', false); continue; }
-            '"' => { read_string(&mut result, &mut cur, '"', true); continue; }
-            '\'' => { read_string(&mut result, &mut cur, '\'', false); continue; }
-            //各種カッコ
-            '(' => { flag_push(TokenKind::ParenL, &mut result, &mut cur); continue; },
-            ')' => { flag_push_josi(TokenKind::ParenR, &mut result, &mut cur); continue; },
-            '[' => { flag_push(TokenKind::BracketL, &mut result, &mut cur); continue; },
-            ']' => { flag_push_josi(TokenKind::BracketR, &mut result, &mut cur); continue; },
-            '{' => { flag_push(TokenKind::CurBracketL, &mut result, &mut cur); continue; },
-            '}' => { flag_push_josi(TokenKind::CurBracketR, &mut result, &mut cur); continue; },
-            // 演算子
-            '+' => { flag_push(TokenKind::Plus, &mut result, &mut cur); continue; },
-            '-' => { flag_push(TokenKind::Minus, &mut result, &mut cur); continue; },
-            '*' => { flag_push(TokenKind::Mul, &mut result, &mut cur); continue; },
-            '×' => { flag_push_n(TokenKind::Mul, '*', &mut result, &mut cur, 1); continue; },
-            '÷' => { flag_push_n(TokenKind::Div, '/', &mut result, &mut cur, 1); continue; },
-            '%' => { flag_push(TokenKind::Mod, &mut result, &mut cur); continue; },
-            '^' => { flag_push(TokenKind::Pow, &mut result, &mut cur); continue; },
-            '\\' => { flag_push(TokenKind::Flag, &mut result, &mut cur); continue; },
-            '`' => { flag_push(TokenKind::Flag, &mut result, &mut cur); continue; },
-            '~' => { flag_push(TokenKind::Flag, &mut result, &mut cur); continue; },
-            '≧' => { flag_push(TokenKind::GtEq, &mut result, &mut cur); continue; },
-            '≦' => { flag_push(TokenKind::LtEq, &mut result, &mut cur); continue; },
-            '≠' => { flag_push(TokenKind::NotEq, &mut result, &mut cur); continue; },
-            '真' => { flag_push_josi(TokenKind::True, &mut result, &mut cur); continue; },
-            '偽' => { flag_push_josi(TokenKind::False, &mut result, &mut cur); continue; },
-            '=' => {
-                if cur.eq_str("==") { flag_push_n(TokenKind::Eq, '=', &mut result, &mut cur, 2); }
-                else { flag_push_n(TokenKind::Eq, '=', &mut result, &mut cur, 1); }
-                continue; 
-            },
-            '&' => { 
-                if cur.eq_str("&&") { flag_push_n(TokenKind::And, '&', &mut result, &mut cur, 2); }
-                else { flag_push_n(TokenKind::PlusStr, '結', &mut result, &mut cur, 1); }
-                continue; 
-            },
-            '|' => { 
-                if cur.eq_str("||") { flag_push_n(TokenKind::Or, '|', &mut result, &mut cur, 2); }
-                else { flag_push_n(TokenKind::Or, '|', &mut result, &mut cur, 1); }
-                continue; 
-            },
-            '!' => {
-                if cur.eq_str("!=") { flag_push_n(TokenKind::NotEq, '≠', &mut result, &mut cur, 2); }
-                else { flag_push(TokenKind::Not, &mut result, &mut cur); }
-                continue; 
-            },
-            '>' => {
-                if cur.eq_str(">=") { flag_push_n(TokenKind::GtEq, '≧', &mut result, &mut cur, 2); }
-                else if cur.eq_str("><") { flag_push_n(TokenKind::NotEq, '≠', &mut result, &mut cur, 2); cur.next(); }
-                else { flag_push(TokenKind::Gt, &mut result, &mut cur); }
+                code.push(c);
                 continue;
-            },
-            '<' => {
-                if cur.eq_str("<=") { flag_push_n(TokenKind::LtEq, '≦', &mut result, &mut cur, 2); }
-                else if cur.eq_str("<>") { flag_push_n(TokenKind::NotEq, '≠', &mut result, &mut cur, 2); }
-                else { flag_push(TokenKind::Lt, &mut result, &mut cur); }
+            }
+            if c == '{' || c == '｛' {
+                is_extract = true;
+                let end = index as i64;
+                result.push(Token::new(
+                    TokenKind::String, NValue::String(data), None, TokenPos::new(start + last_index as i64, start + end)));
+                data = String::new();
                 continue;
-            },
-            '●' => { flag_push(TokenKind::DefFunc, &mut result, &mut cur); continue; },
-            // '!'..='.' => { flag_push(TokenKind::Flag, &mut result, &mut cur); continue; },
-            // ':'..='@' => { flag_push(TokenKind::Flag, &mut result, &mut cur); continue; },
-            // 数値
-            '0'..='9' => { result.push(read_number(&mut cur)); continue; },
-            // word
-            'a'..='z' | 'A'..='Z' | '_' => { read_word(&mut result, &mut cur); continue; }
-            n if n > (0xE0 as char) => { read_word(&mut result, &mut cur); continue; }
-            _ => {} // pass
+            }
+            data.push(c);
         }
-        // pass
-        println!("[字句解析エラー]: 未定義の文字『{}』", ch);
-        cur.next();
+        let src_len = src.chars().count() as i64;
+        result.push(Token::new(TokenKind::String, NValue::String(data), josi_opt.clone(),
+            TokenPos::new(start + last_index as i64, start + src_len)));
     }
-    result
+
 }
+
 
 // 1文字をトークンとして追加する関数
 fn flag_push(kind: TokenKind, result: &mut Vec<Token>, cur: &mut StrCur) {
@@ -349,71 +433,10 @@ fn delete_okurigana(word: Vec<char>) -> Vec<char> {
     result
 }
 
-fn read_string(result: &mut Vec<Token>, cur: &mut StrCur, end_flag: char, ex_str: bool) {
-    let start = cur.get_index_i();
-    cur.next(); // begin_flag
-    let mut res: Vec<char> = vec![];
-    while cur.can_read() {
-        let c = cur.next();
-        if c == end_flag {
-            break;
-        }
-        res.push(c);
-    }
-    // read josi
-    let josi_opt = josi_list::read_josi(cur);
-    let label = res.iter().collect();
-    if ex_str {
-        extract_string_ex(result, label, josi_opt, start);
-    } else {
-        let end = cur.get_index_i();
-        let tok = Token::new(TokenKind::String, NValue::String(label), josi_opt, TokenPos::new(start, end));
-        result.push(tok);
-    }
+pub fn tokenize(src: &str) -> Vec<Token> {
+    let mut t = Tokenizer::new(src, 0);
+    t.tokenize()
 }
-
-fn extract_string_ex(result: &mut Vec<Token>, src: String, josi_opt:Option<String>, start: i64) {
-    let mut data = String::new();
-    let mut code = String::new();
-    let mut is_extract = false;
-    let mut last_index = 0;
-    for (index, c) in src.chars().enumerate() {
-        if is_extract {
-            if c == '}' || c == '｝' {
-                last_index = index + 1;
-                let list = tokenize_src(&code, last_index as i64 + start);
-                if list.len() > 0 {
-                    let end = list[list.len() - 1].pos.end;
-                    result.push(Token::new(TokenKind::PlusStr, NValue::from_char('結'), None, TokenPos::new(list[0].pos.start, end)));
-                    result.push(Token::new(TokenKind::ParenL, NValue::from_char('('), None, TokenPos::new(list[0].pos.start, list[0].pos.end)));
-                    for t in list.into_iter() {
-                        result.push(t);
-                    }
-                    result.push(Token::new(TokenKind::ParenR, NValue::from_char(')'), None, TokenPos::new(end, end)));
-                    result.push(Token::new(TokenKind::PlusStr, NValue::from_char('結'), None, TokenPos::new(end, end)));
-                    is_extract = false;
-                }
-                continue;
-            }
-            code.push(c);
-            continue;
-        }
-        if c == '{' || c == '｛' {
-            is_extract = true;
-            let end = index as i64;
-            result.push(Token::new(
-                TokenKind::String, NValue::String(data), None, TokenPos::new(start + last_index as i64, start + end)));
-            data = String::new();
-            continue;
-        }
-        data.push(c);
-    }
-    let src_len = src.chars().count() as i64;
-    result.push(Token::new(TokenKind::String, NValue::String(data), josi_opt.clone(),
-        TokenPos::new(start + last_index as i64, start + src_len)));
-}
-
-
 
 #[cfg(test)]
 mod test_tokenizer {

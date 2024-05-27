@@ -3,19 +3,21 @@
 use crate::kanautils;
 
 /// 文字列カーソル
+#[derive(Debug, Clone)]
 pub struct StrCur {
     pub src: Vec<char>,
     length: usize, // private : user can not change
     index: usize,
-    top_index: usize, // カーソルの途中からインデックスを取得するためのもの
+    pub top_index: i64, // カーソルの途中からインデックスを取得するためのもの
+    pub fileno: u32,
 }
 
 #[allow(dead_code)]
 impl StrCur {
-    pub fn from(src: &str) -> Self {
-        Self::from_source(src, 0)
+    pub fn from(src: &str, fileno: u32) -> Self {
+        Self::from_source(src, 0, fileno)
     }
-    pub fn from_source(src: &str, top_index: usize) -> Self {
+    pub fn from_source(src: &str, top_index: i64, fileno: u32) -> Self {
         let vc:Vec<char> = src.chars().collect();
         let len = vc.len();
         Self {
@@ -23,6 +25,7 @@ impl StrCur {
             index: 0,
             length: len,
             top_index,
+            fileno
         }
     }
     pub fn peek(&self) -> char {
@@ -57,10 +60,10 @@ impl StrCur {
         self.index = index;
     }
     pub fn get_index(&mut self) -> usize {
-        self.index + self.top_index
+        (self.index as i64 + self.top_index) as usize
     }
     pub fn get_index_i(&mut self) -> i64 {
-        (self.index + self.top_index) as i64
+        (self.index as i64 + self.top_index) as i64
     }
     pub fn peek_half(&self) -> char {
         let ch = self.peek();
@@ -162,20 +165,20 @@ mod test_prepare {
     #[test]
     fn strcur_test() {
         // 1
-        let mut cur = StrCur::from("a//b");
+        let mut cur = StrCur::from("a//b", 0);
         assert_eq!(cur.eq_str("a//"), true);
         assert_eq!(cur.eq_str("ab"), false);
         let ch = cur.next();
         assert_eq!(ch, 'a');
         assert_eq!(cur.eq_str("//"), true);
         // skip_space
-        let mut cur = StrCur::from("a   b");
+        let mut cur = StrCur::from("a   b", 0);
         assert_eq!(cur.next(), 'a');
         cur.skip_space();
         assert_eq!(cur.next(), 'b');        
         assert_eq!(cur.can_read(), false);
         // seek
-        let mut cur = StrCur::from("012345");
+        let mut cur = StrCur::from("012345", 0);
         cur.seek(3);
         assert_eq!(cur.peek(), '3');
         cur.seek(-30);
@@ -186,7 +189,7 @@ mod test_prepare {
     #[test]
     fn get_token_test () {
         // get_token
-        let mut cur = StrCur::from("aaa,bbb,ccc");
+        let mut cur = StrCur::from("aaa,bbb,ccc", 0);
         assert_eq!(cur.get_token_tostr(','), "aaa");
         assert_eq!(cur.get_token_tostr(','), "bbb");
         assert_eq!(cur.get_token_tostr(','), "ccc");
@@ -194,7 +197,7 @@ mod test_prepare {
     }
     #[test]
     fn eq_str_test () {
-        let mut cur = StrCur::from("aaa/*bbb*/ccc");
+        let mut cur = StrCur::from("aaa/*bbb*/ccc", 0);
         assert_eq!(cur.eq_str("aaa"), true);
         cur.seek(3);  
         assert_eq!(cur.eq_str("/*"), true);
@@ -205,25 +208,25 @@ mod test_prepare {
         cur.seek(2);
         assert_eq!(cur.eq_str("ccc"), true);
         //
-        let cur = StrCur::from("あいうえお");
+        let cur = StrCur::from("あいうえお", 0);
         assert_eq!(cur.eq_str("あいうえお"), true);
     }
     #[test]
     fn get_token_str_test () {
         // get_token
-        let mut cur = StrCur::from("aaa::bbb::ccc");
+        let mut cur = StrCur::from("aaa::bbb::ccc", 0);
         assert_eq!(cur.get_token_str_tostr("::"), "aaa");
         assert_eq!(cur.get_token_str_tostr("::"), "bbb");
         assert_eq!(cur.get_token_str_tostr("::"), "ccc");
         assert_eq!(cur.can_read(), false);
         //
-        let mut cur = StrCur::from("/*AAA*/BBB");
+        let mut cur = StrCur::from("/*AAA*/BBB", 0);
         assert_eq!(cur.get_token_str_tostr("/*"), "");
         assert_eq!(cur.get_token_str_tostr("*/"), "AAA");
         assert_eq!(cur.get_token_str_tostr("*/"), "BBB");
         assert_eq!(cur.can_read(), false);
         //
-        let mut cur = StrCur::from("//abc\n\n/*fff*/");
+        let mut cur = StrCur::from("//abc\n\n/*fff*/", 0);
         assert_eq!(cur.get_token_str_tostr("/*"), "//abc\n\n");
         assert_eq!(cur.get_token_str_tostr("*/"), "fff");
         assert_eq!(cur.can_read(), false);
@@ -231,7 +234,7 @@ mod test_prepare {
     #[test]
     fn get_str_test () {
         // get_str
-        let mut cur = StrCur::from("aaa->bbb->ccc");
+        let mut cur = StrCur::from("aaa->bbb->ccc", 0);
         assert_eq!(cur.get_str(3), "aaa");
         assert_eq!(cur.get_str(2), "->");
         assert_eq!(cur.get_str(3), "bbb");
@@ -240,7 +243,7 @@ mod test_prepare {
     }
     #[test]
     fn get_range_test() {
-        let mut cur = StrCur::from("123abc456ccc");
+        let mut cur = StrCur::from("123abc456ccc", 0);
         assert_eq!(cur.get_range_str('0','9'), "123");
         assert_eq!(cur.get_range_str('a','z'), "abc");
         assert_eq!(cur.get_range_str('0','9'), "456");
@@ -248,7 +251,7 @@ mod test_prepare {
     }
     #[test]
     fn next_test2() {
-        let mut cur = StrCur::from("123");
+        let mut cur = StrCur::from("123", 0);
         assert_eq!(cur.next(), '1');
         assert_eq!(cur.next(), '2');
         assert_eq!(cur.next(), '3');

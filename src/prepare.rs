@@ -3,9 +3,9 @@
 use crate::kanautils;
 use crate::strcur::StrCur;
 
-pub fn convert(src: &str) -> String {
+pub fn convert(src: &str, fileno: u32) -> String {
     let mut result = String::new();
-    let mut cur = StrCur::from(src);
+    let mut cur = StrCur::from(src, fileno);
     let mut is_str = false;
     let mut end_of_str = 0 as char;
     let mut is_line_comment = false;
@@ -96,17 +96,17 @@ mod test_prepare {
     use super::*;
     #[test]
     fn convert_test() {
-        let s = convert("");
+        let s = convert("", 0);
         assert_eq!(s, String::from(""));
-        let s = convert("abc");
+        let s = convert("abc", 0);
         assert_eq!(s, String::from("abc"));
-        let s = convert("！！/*！！*/！！");
+        let s = convert("！！/*！！*/！！", 0);
         assert_eq!(s, String::from("!!/*！！*/!!"));
-        let s = convert("！！「！！」！！");
+        let s = convert("！！「！！」！！", 0);
         assert_eq!(s, String::from("!!「！！」!!"));
-        let s = convert("！！『！！』！！");
+        let s = convert("！！『！！』！！", 0);
         assert_eq!(s, String::from("!!『！！』!!"));
-        let s = convert("ＡＢＣ");
+        let s = convert("ＡＢＣ", 0);
         assert_eq!(s, String::from("ABC"));
     }
 }

@@ -1,5 +1,6 @@
 //! 構文解析器
 
+use crate::tokenizer::Tokenizer;
 use crate::token::*;
 use crate::node::*;
 use crate::tokencur::TokenCur;
@@ -1051,10 +1052,15 @@ impl Parser {
     }
 }
 
+pub fn tokenize(code: &str) -> Vec<Token> {
+    let fileno = 0;
+    let mut tokenizer = Tokenizer::new(code, fileno);
+    return tokenizer.tokenize()
+}
+
 #[cfg(test)]
 mod test_parser {
     use super::*;
-    use crate::tokenizer::tokenize;
 
     #[test]
     fn test_parser_comment() {
