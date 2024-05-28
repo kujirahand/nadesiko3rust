@@ -16,15 +16,10 @@
 //! println!("{}", result);
 //! ```
 //! 
-//! # Build for Command line
-//! ```sh
-//! % cargo build
-//! % nadesiko3 eval "1+2*3を表示"
-//! ```
-//! 
 //! # Current Structure
-//! source(&str) => Tokenize(Vec<Token>) => Parse(Vec<Node>) => Run
-//! see runner::eval()
+//! 
+//! source(&str) → Tokenize(Vec<Token>) → Parse(Vec<Node>) => Run(runner)
+//! @see runner::eval()
 //! 
 
 pub mod nvalue;
@@ -41,7 +36,6 @@ pub mod node;
 pub mod operator;
 pub mod bytecode_gen;
 pub mod bytecode_run;
-// runner
 pub mod runner;
 pub mod sys_function;
 pub mod sys_function_debug;
