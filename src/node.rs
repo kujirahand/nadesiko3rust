@@ -77,15 +77,15 @@ impl Node {
         match self.kind {
             NodeKind::Nop => String::from("Nop"),
             NodeKind::NodeList => format!("NodeList:{}", self.value.to_string()),
-            NodeKind::Int => format!("I({})", self.value.to_int(0)),
-            NodeKind::Number => format!("F({})", self.value.to_float(0.0)),
-            NodeKind::Bool => format!("B({})", self.value.to_string()),
+            NodeKind::Int => format!("{}", self.value.to_int(0)),
+            NodeKind::Number => format!("{}", self.value.to_float(0.0)),
+            NodeKind::Bool => format!("{}", self.value.to_string()),
             NodeKind::String => format!("\"{}\"", self.value.to_string()),
-            NodeKind::Comment => format!("Comment:{}", self.value.to_string()),
+            NodeKind::Comment => format!("/* {} */", self.value.to_string()),
             NodeKind::LetVarGlobal => format!("Let:{}", self.value.to_string()),
-            NodeKind::GetVarGlobal => format!("Get:{}", self.value.to_string()),
-            NodeKind::LetVarLocal => format!("LetVarLocal:{}", self.value.to_string()),
-            NodeKind::GetVarLocal => format!("GetVarLocal:{}", self.value.to_string()),
+            NodeKind::GetVarGlobal => format!("{}", self.value.to_string()),
+            NodeKind::LetVarLocal => format!("LetLocal:{}", self.value.to_string()),
+            NodeKind::GetVarLocal => format!("Local({})", self.value.to_string()),
             NodeKind::Operator => format!("{}", self.value.to_string()),
             NodeKind::CallSysFunc => format!("Sys:{}", self.value.to_string()),
             NodeKind::CallUserFunc => format!("Usr:{}", self.value.to_string()),
@@ -652,7 +652,7 @@ impl NodeContext {
     pub fn throw_error(&mut self, kind: NodeErrorKind, level: NodeErrorLevel, msg: String, pos: NodePos) {
         let filename = self.get_filename(pos.fileno);
         let err = NodeError::new(kind, level, msg, pos.row, pos.col, filename);
-        println!("{}", &err.to_string());
+        // println!("{}", &err.to_string());
         self.errors.push(err);
         match level {
             NodeErrorLevel::Error => self.error_count += 1,

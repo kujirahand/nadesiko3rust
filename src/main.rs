@@ -97,7 +97,7 @@ fn compile_and_run(src: &str, fname: &str, debug_mode: bool, parse_mode: bool) {
     }
     if parse_mode { return; }
     /*
-    // byte code
+    // TODO: byte code
     let codes = match bytecode_gen::generate(&nodes) {
         Ok(codes) => codes,
         Err(e) => { println!("[ERROR] {}", e); return; },
@@ -106,8 +106,8 @@ fn compile_and_run(src: &str, fname: &str, debug_mode: bool, parse_mode: bool) {
     */
     // run_nodes
     match runner::run_nodes(&mut parser.context, &nodes) {
-        Ok(v) => if debug_mode { println!(">> {}", v.to_string()); },
-        Err(e) => println!("!! {}", e),
+        Ok(v) => if debug_mode { println!("{}", v.to_string()); },
+        Err(e) => println!("!!{}", e),
     }
 }
 

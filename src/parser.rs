@@ -90,6 +90,11 @@ impl Parser {
                 nodes.push(node);
                 continue;
             }
+            // sentenceを読んだ後のEolを飛ばす
+            if self.cur.eq_kind(TokenKind::Eol) { break; }
+            // 未知の語句のエラー。
+            let t = self.cur.peek();
+            self.throw_error(format!("未知の語句『{}』があります。", t.to_string()), self.pos(&t));
             break;
         }
         Ok(nodes)
@@ -142,9 +147,14 @@ impl Parser {
             let t = self.cur.next();
             return Some(self.new_simple_node(NodeKind::Continue, &t));
         }
-        // トークンの連続＋命令の場合
+        // 記号
+        if let Some(node) = self.check_flag() { return Some(node); }
+        // トークンの連続＋命令の場合(Aして、Bして、C…を検出する)
         while self.cur.can_read() {
+            let start_tok = &self.cur.peek();
+            // 改行なら抜ける
             if self.cur.eq_kind(TokenKind::Eol) { break; }
+            // スタックに載せるべき値が見当たらなければループから抜ける
             if !self.check_value() { break; }
             if self.cur.eq_kind(TokenKind::Dainyu) { return self.check_dainyu(); }
             // call function?
@@ -190,18 +200,28 @@ impl Parser {
                         self.pos(&ret_t)
                     ));
             }
+            // ここに到達したら解析できない構文エラー
+            let errmsg = format!("トークンの連続の後で解析できない構文エラー。{}", start_tok.to_string());
+            self.throw_error(errmsg, self.pos(start_tok));
         }
         // スタックの余剰があればエラーとして報告する
         if self.stack.len() > 0 {
             let pos: NodePos = self.pos(&self.cur.peek());
             let errmsg = String::from("計算式に次の余剰があります。");
             let args: Vec<String> = self.stack.iter().map(|n| n.to_string()).collect();
-            let args_str = args.join(", ");
-            self.throw_error(format!("{}必要なら式を(式)のようにカッコで囲ってみてください。余剰の値: {}", errmsg, args_str), pos);
+            let args_str = args.join(",");
+            self.throw_error(format!("{}必要なら式を(式)のようにカッコで囲ってみてください。余剰の値:[{}]", errmsg, args_str), pos);
         }
         None
     }
     
+    fn check_flag(&mut self) -> Option<Node> {
+        if !self.cur.eq_kind(TokenKind::Flag) { return None; }
+        let t = self.cur.next(); // flag
+        self.throw_error(format!("フラグ『{}』があります。", t.value.to_string()), self.pos(&t));
+        None
+    }
+
     fn check_for(&mut self) -> Option<Node> {
         let kai_t = self.cur.next(); // skip 繰り返す
         
