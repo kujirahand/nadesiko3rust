@@ -220,9 +220,6 @@ impl Parser {
                         self.pos(&ret_t)
                     ));
             }
-            // ここに到達したら解析できない構文エラーではない！
-            // let errmsg = format!("トークンの連続の後で解析できない構文エラー。{}", start_tok.to_string());
-            // self.throw_error(errmsg, self.pos(start_tok));
         }
         // スタックの余剰があればエラーとして報告する
         if self.stack.len() > 0 {
