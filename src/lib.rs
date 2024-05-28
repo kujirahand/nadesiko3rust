@@ -17,8 +17,9 @@
 //! ```
 //! 
 //! # Current Structure
-//! 
+//! ```text
 //! source(&str) → Tokenize(Vec<Token>) → Parse(Vec<Node>) => Run(runner)
+//! ```
 //! @see runner::eval()
 //! 
 
