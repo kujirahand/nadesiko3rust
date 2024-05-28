@@ -1,6 +1,6 @@
 [package]
 name = "nadesiko3rust"
-version = "0.1.3"
+version = "0.1.4"
 authors = ["kujirahand"]
 description = "Japanese programming language Nadesiko v3"
 license = "MIT"
