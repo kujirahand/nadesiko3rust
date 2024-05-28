@@ -48,7 +48,7 @@ pub mod sys_function_debug;
 
 /// 引数codeに指定したプログラムを実行して結果を文字列で返す
 pub fn eval_str(code: &str) -> String {
-    runner::eval_str(code)   
+    runner::eval_str(code)
 }
 
 /// 引数codeに指定したプログラムを実行して結果をNodeValueで返す
@@ -59,6 +59,19 @@ pub fn eval(code: &str) -> Result<node::NodeValue, String> {
 #[cfg(target_arch = "wasm32")]
 mod wasm {
     use wasm_bindgen::prelude::*;
+    use super::*;
+
+    #[wasm_bindgen]
+    pub fn nako_eval_str(code: &str) -> String {
+        runner::eval_str(code)
+    }
+    #[wasm_bindgen]
+    pub fn nako_eval_getlogs(code: &str) -> String {
+        match runner::eval(code, runner::RunOption::print_log()) {
+            Ok(v) => v.to_string(),
+            Err(e) => format!("!!{}", e.to_string()),
+        }
+    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]

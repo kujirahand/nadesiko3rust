@@ -2,7 +2,7 @@
 /// Japanese programming language "Nadesiko"
 /// - <https://github.com/kujirahand/nadesiko3rust>
 
-use nadesiko3::{node::NodeContext, *};
+use nadesiko3rust::{node::NodeContext, *};
 use std::fs;
 
 fn main() {
@@ -67,6 +67,7 @@ fn include_file(context: &mut NodeContext, tokens: Vec<token::Token>) -> Vec<tok
             // 既に読み込み済みであればスキップ
             if let Some(_no) = context.find_files(f) { continue; }
             // ファイルを読み込む
+            // TODO: パスを探す処理
             let src = match fs::read_to_string(f) {
                 Ok(s) => s,
                 Err(err) => { println!("取り込み対象ファイル『{}』が読めません。{}", f, err); return vec![]; },

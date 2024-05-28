@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>なでしこ3Rustテスト</title>
+    <script type="module">
+        import init, { nako_eval_str, nako_eval_getlogs } from './pkg/nadesiko3rust.js';
+        async function runWasm() {
+            await init(); // WASM モジュールを初期化
+            // Rustで定義された関数を呼び出す
+            const greeting = nako_eval_getlogs("「こんにちは、なでしこ3です。」と表示。");
+            console.log(greeting); // コンソールに出力
+            // ボタンクリック時の処理
+            document.getElementById('runButton').addEventListener('click', () => {
+                const code = document.getElementById('code').value;
+                const result = nako_eval_getlogs(code);
+                document.getElementById('output').textContent = result;
+            });
+        }
+        runWasm().catch(console.error);
+    </script>
+</head>
+
+<body>
+    <h1>なでしこ3Rustのテスト</h1>
+    <div>
+        <textarea id="code" rows="10" cols="50">
+「こんにちは」と表示。
+「こんにちは」と表示。
+「こんにちは」と表示。
+        </textarea>
+    </div>
+    <div>
+        <button id="runButton">実行</button>
+    </div>
+    <div><pre id="output"></pre></div>
+</body>
+</html>
