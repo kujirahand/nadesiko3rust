@@ -4,7 +4,7 @@
 //! 
 //! # Example
 //! ```
-//! use nadesiko3::*;
+//! use nadesiko3rust::*;
 //! // 文字を表示
 //! let result = eval_str("「こんにちは」と表示");
 //! println!("{}", result);
@@ -56,6 +56,11 @@ pub fn eval(code: &str) -> Result<node::NodeValue, String> {
     runner::eval(code, runner::RunOption::normal())
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+pub mod cli {
+    // command line interface
+}
+
 #[cfg(target_arch = "wasm32")]
 mod wasm {
     use wasm_bindgen::prelude::*;
@@ -72,10 +77,6 @@ mod wasm {
             Err(e) => format!("!!{}", e.to_string()),
         }
     }
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-mod cli {
 }
 
 #[cfg(test)]
