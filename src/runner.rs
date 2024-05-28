@@ -474,27 +474,29 @@ impl RunOption {
 
 pub fn eval(code: &str, options: RunOption) -> Result<NodeValue,String> {
     // 意味解析器を初期化
-    let mut p = parser::Parser::new();
+    let mut context = NodeContext::new();
+    context.set_filename("eval");
     if options.use_sysfunc {
-        sys_function::register(&mut p.context);
+        sys_function::register(&mut context);
     } else {
-        sys_function_debug::register(&mut p.context);
+        sys_function_debug::register(&mut context);
     }
     // 字句解析
     let tokens = tokenizer::tokenize_test(code);
     // 意味解析
-    let nodes = match p.parse(tokens, "eval.nako3") {
+    let mut parser = parser::Parser::new_context(tokens, context.clone());
+    let nodes = match parser.parse() {
         Ok(nodes) => nodes,
         Err(e) => { return Err(e); }
     };
     // 戻り値として「表示」文のログを返す場合
     if options.return_print_log {
-        return match run_nodes(&mut p.context, &nodes) {
-            Ok(_) => Ok(NodeValue::S(String::from(p.context.print_log.trim_end()))),
+        return match run_nodes(&mut context, &nodes) {
+            Ok(_) => Ok(NodeValue::S(String::from(context.print_log.trim_end()))),
             Err(e) => Err(e)
         };
     }
-    run_nodes(&mut p.context, &nodes)
+    run_nodes(&mut context, &nodes)
 }
 
 pub fn eval_str(code: &str) -> String {

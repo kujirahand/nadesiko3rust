@@ -10,16 +10,22 @@ use crate::josi_list;
 pub struct Parser {
     pub context: NodeContext,
     cur: TokenCur,
-    fileno: i32,
     stack: Vec<Node>,
 }
 impl Parser {
-    pub fn new() -> Self {
+    pub fn new(tokens: Vec<Token>) -> Self {
+        let context = NodeContext::new();
         Self {
-            fileno: 0,
-            cur: TokenCur::new(vec![]), // dummy
+            cur: TokenCur::new(tokens),
             stack: vec![],
-            context: NodeContext::new(),
+            context,
+        }
+    }
+    pub fn new_context(tokens: Vec<Token>, context: NodeContext) -> Self {
+        Self {
+            cur: TokenCur::new(tokens),
+            stack: vec![],
+            context,
         }
     }
     // for error
@@ -37,17 +43,13 @@ impl Parser {
         self.throw_error(message, self.pos(&t));
     }
     pub fn pos(&self, t: &Token) -> NodePos {
-        NodePos::new(t.pos.start, t.pos.end, t.pos.row, t.pos.col, self.fileno)
+        NodePos::new(t.pos.start, t.pos.end, t.pos.row, t.pos.col, t.pos.fileno)
     }
 
     //-------------------------------------------------------------
     // parse
     //-------------------------------------------------------------
-    pub fn parse(&mut self, tokens: Vec<Token>, filename: &str) -> Result<Vec<Node>, String> {
-        self.cur = TokenCur::new(tokens);
-        self.fileno = self.context.set_filename(filename);
-        // 取り込むがあるかどうか調べる
-        self.pre_read_include();
+    pub fn parse(&mut self) -> Result<Vec<Node>, String> {
         // 最初に関数定義があるかどうか調べる
         self.pre_read_def_func();
         // 冒頭から改めて読む
@@ -55,15 +57,37 @@ impl Parser {
         self.get_sentence_list()
     }
 
-    fn pre_read_include(&mut self) {
-        // 『！「＊＊＊」を読み込む』を先読みする
+    // 『！「＊＊＊」を取り込む』を先読みする
+    pub fn check_include_files(&mut self) -> i32 {
+        let mut result = 0;
+        let mut flag_line_top = true;
         while self.cur.can_read() {
-            if self.cur.eq_kind(TokenKind::DefFunc) {
-                // todo: 『！「＊＊＊」を読み込む』の処理
-                continue;
+            // 行頭の「!」かどうかを判定
+            let t = self.cur.peek();
+            if flag_line_top && t.value.eq_char('!') {
+                self.cur.next(); // skip !
+                // ! "str" word
+                if self.cur.eq_kinds(&[TokenKind::String, TokenKind::Word]) {
+                    let file_t = self.cur.next();
+                    let do_t = self.cur.next();
+                    // 取り込む？
+                    if do_t.value.eq_str("取込") {
+                        let file_path = file_t.value.to_string();
+                        self.context.include_files.push(file_path);
+                        result += 1;
+                        continue;
+                    }
+                }
+            }
+            // 行頭かどうかを確認
+            if self.cur.eq_kind(TokenKind::Eol) {
+                flag_line_top = true;
+            } else {
+                flag_line_top = false;
             }
             self.cur.next();
         }
+        result
     }
 
     fn pre_read_def_func(&mut self) {
@@ -81,6 +105,7 @@ impl Parser {
         let mut nodes: Vec<Node> = vec![];
         // 文を繰り返し得る
         while self.cur.can_read() {
+            // println!("@@@get_sentence_list={:?}", self.cur.peek());
             // 文の連続の終了条件
             if self.has_error() { return Err(self.get_error_str()); }
             if self.cur.eq_kind(TokenKind::BlockEnd) { break; }
@@ -90,11 +115,7 @@ impl Parser {
                 nodes.push(node);
                 continue;
             }
-            // sentenceを読んだ後のEolを飛ばす
-            if self.cur.eq_kind(TokenKind::Eol) { break; }
-            // 未知の語句のエラー。
-            let t = self.cur.peek();
-            self.throw_error(format!("未知の語句『{}』があります。", t.to_string()), self.pos(&t));
+            // println!("@@@get_sentence_list2={:?}", self.cur.peek());
             break;
         }
         Ok(nodes)
@@ -151,7 +172,6 @@ impl Parser {
         if let Some(node) = self.check_flag() { return Some(node); }
         // トークンの連続＋命令の場合(Aして、Bして、C…を検出する)
         while self.cur.can_read() {
-            let start_tok = &self.cur.peek();
             // 改行なら抜ける
             if self.cur.eq_kind(TokenKind::Eol) { break; }
             // スタックに載せるべき値が見当たらなければループから抜ける
@@ -200,9 +220,9 @@ impl Parser {
                         self.pos(&ret_t)
                     ));
             }
-            // ここに到達したら解析できない構文エラー
-            let errmsg = format!("トークンの連続の後で解析できない構文エラー。{}", start_tok.to_string());
-            self.throw_error(errmsg, self.pos(start_tok));
+            // ここに到達したら解析できない構文エラーではない！
+            // let errmsg = format!("トークンの連続の後で解析できない構文エラー。{}", start_tok.to_string());
+            // self.throw_error(errmsg, self.pos(start_tok));
         }
         // スタックの余剰があればエラーとして報告する
         if self.stack.len() > 0 {
@@ -1093,8 +1113,8 @@ mod test_parser {
     #[test]
     fn test_parser_comment() {
         let t = tokenize_test("/*cmt*/");
-        let mut p = Parser::new();
-        let nodes = p.parse(t, "hoge.nako3").unwrap();
+        let mut p = Parser::new(t);
+        let nodes = p.parse().unwrap();
         let node = &nodes[0];
         assert_eq!(node.kind, NodeKind::Comment);
         assert_eq!(node.value.to_string(), String::from("cmt"));
@@ -1103,8 +1123,8 @@ mod test_parser {
     #[test]
     fn test_parser_let() {
         let t = tokenize_test("aaa = 30");
-        let mut p = Parser::new();
-        let nodes = p.parse(t, "hoge.nako3").unwrap(); 
+        let mut p = Parser::new(t);
+        let nodes = p.parse().unwrap(); 
         let node = &nodes[0];
         assert_eq!(node.kind, NodeKind::LetVarGlobal);
         let let_value = match &node.value {

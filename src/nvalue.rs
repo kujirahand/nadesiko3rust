@@ -359,6 +359,27 @@ impl NValue {
             _ => NValue::NaN,
         }
     }
+
+    /// compare char
+    pub fn eq_char(&self, ch: char) -> bool {
+        match &self {
+            NValue::String(v) => {
+                if v.len() == 1 {
+                    return v.chars().nth(0).unwrap_or('\0') == ch;
+                }
+            },
+            _ => {},
+        }
+        false
+    }
+
+    /// compare str
+    pub fn eq_str(&self, s: &str) -> bool {
+        match &self {
+            NValue::String(v) => v.eq(s),
+            _ => false,
+        }
+    }
 }
 
 #[cfg(test)]

@@ -2,7 +2,7 @@
 /// Japanese programming language "Nadesiko"
 /// - <https://github.com/kujirahand/nadesiko3rust>
 
-use nadesiko3::*;
+use nadesiko3::{node::NodeContext, *};
 use std::fs;
 
 fn main() {
@@ -61,18 +61,23 @@ fn main() {
 
 fn compile_and_run(src: &str, fname: &str, debug_mode: bool, parse_mode: bool) {
     // prepare
-    let mut parser = parser::Parser::new();
-    parser.context.debug_mode = debug_mode;
-    let fileno = parser.context.set_filename(fname);
-    let cur = strcur::StrCur::from(src, 0);
-    sys_function::register(&mut parser.context);
-    // sys_function_debug::register(&mut parser.context);
+    let mut context = NodeContext::new();
+    context.debug_mode = debug_mode;
+    sys_function::register(&mut context);
+    let fileno = context.set_filename(fname);
+    let cur = strcur::StrCur::from(src, fileno);
+    
     // tokenizer
     if debug_mode { println!("--- tokenize ---"); }
     let tokens = tokenizer::tokenize(src, 0, fileno);
     if debug_mode { println!("{}", token::tokens_string(&tokens)); }
+
+    if debug_mode { println!("--- include ---"); }
+    let mut parser = parser::Parser::new_context(tokens, context);
+    parser.check_include_files();
+    
     if debug_mode { println!("--- parse ---"); }
-    let nodes = match parser.parse(tokens, fname) {
+    let nodes = match parser.parse() {
         Ok(nodes) => nodes,
         Err(e) => { println!("!!{}", e); return },
     };
@@ -105,8 +110,9 @@ fn compile_and_run(src: &str, fname: &str, debug_mode: bool, parse_mode: bool) {
     println!("{:?}", codes);
     */
     // run_nodes
-    match runner::run_nodes(&mut parser.context, &nodes) {
-        Ok(v) => if debug_mode { println!("{}", v.to_string()); },
+    context = parser.context;
+    match runner::run_nodes(&mut context, &nodes) {
+        Ok(v) => if debug_mode { println!(">> {}", v.to_string()); },
         Err(e) => println!("!!{}", e),
     }
 }
