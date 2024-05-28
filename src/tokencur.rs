@@ -83,6 +83,12 @@ impl TokenCur {
         }
         true
     }
+
+    /// replace token
+    pub fn replace_token(&mut self, index: usize, t: Token) {
+        if index >= self.length { return; }
+        self.tokens[index] = t;
+    }
 }
 
 #[cfg(test)]

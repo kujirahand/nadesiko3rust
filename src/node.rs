@@ -2,8 +2,6 @@
 use std::{collections::HashMap, cell::RefCell, rc::Rc};
 use std::cell::RefMut;
 
-use crate::strcur::StrCur;
-
 /// ノードの種類
 #[allow(dead_code)]
 #[derive(Debug,PartialEq,Clone,Copy)]
@@ -562,11 +560,11 @@ pub fn nodes_to_string(nodes: &Vec<Node>, delimiter: &str) -> String {
     r
 }
 
-pub fn nodes_to_string_lineno(nodes: &Vec<Node>, cur: &StrCur, delimiter: &str) -> String {
+pub fn nodes_to_string_lineno(nodes: &Vec<Node>, delimiter: &str) -> String {
     let mut r = String::new();
     for (i, node) in nodes.iter().enumerate() {
         if delimiter.eq("\n") {
-            let line = format!("L{}: {}", cur.get_lineno(node.pos.start) , &node.to_string());
+            let line = format!("L{}: {}", node.pos.row , &node.to_string());
             r.push_str(&line);
         } else {
             let line = format!("{}", &node.to_string());
@@ -587,7 +585,6 @@ pub struct NodeContext {
     pub scopes: NodeScopeList,
     pub files: Vec<String>,
     pub sysfuncs: Vec<SysFuncInfo>,
-    pub include_files: Vec<String>,
     errors: Vec<NodeError>,
     error_count: usize,
     pub try_break: Option<usize>,
@@ -606,7 +603,6 @@ impl NodeContext {
             scopes: NodeScopeList::new(),
             files: vec![],
             sysfuncs: vec![],
-            include_files: vec![],
             errors: vec![],
             error_count: 0,
             try_break: None,

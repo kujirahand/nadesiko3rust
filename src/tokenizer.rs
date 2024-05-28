@@ -7,6 +7,7 @@ use crate::josi_list;
 use crate::reserved_words;
 use crate::token::*;
 use crate::nvalue::NValue;
+use crate::tokencur::TokenCur;
 
 #[derive(Debug, Clone)]
 pub struct Tokenizer {
@@ -485,6 +486,46 @@ pub fn tokenize(src: &str, start: i32, fileno: i32) -> Vec<Token> {
 pub fn tokenize_test(src: &str) -> Vec<Token> {
     tokenize(src, 0, 0)
 }
+
+// 『！「＊＊＊」を取り込む』を先読みする
+pub fn read_include_files(tokens: Vec<Token>) -> (Vec<Token>, Vec<String>) {
+    let mut result = vec![];
+    let mut flag_line_top = true;
+    let mut cur = TokenCur::new(tokens);
+    while cur.can_read() {
+        // 行頭の「!」かどうかを判定
+        let t = cur.peek();
+        if flag_line_top && t.value.eq_char('!') {
+            let top_index = cur.index;
+            let flag_t = cur.next(); // skip !
+            // ! "str" word
+            if cur.eq_kinds(&[TokenKind::String, TokenKind::Word]) {
+                let file_t = cur.next();
+                let do_t = cur.next();
+                // 取り込む？
+                if do_t.value.eq_str("取込") {
+                    let file_path = file_t.value.to_string();
+                    result.push(file_path.clone());
+                    // トークンをコメントに置換
+                    let include_comment = format!("!「{}」を取込", file_path);
+                    cur.replace_token(top_index + 0, Token::new_comment(&include_comment, flag_t.pos));
+                    cur.replace_token(top_index + 1, Token::new_comment("", flag_t.pos));
+                    cur.replace_token(top_index + 2, Token::new_comment("", flag_t.pos));
+                    continue;
+                }
+            }
+        }
+        // 行頭かどうかを確認
+        if cur.eq_kind(TokenKind::Eol) {
+            flag_line_top = true;
+        } else {
+            flag_line_top = false;
+        }
+        cur.next();
+    }
+    (cur.tokens, result)
+}
+
 
 #[cfg(test)]
 mod test_tokenizer {

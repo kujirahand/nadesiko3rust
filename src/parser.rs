@@ -1,5 +1,4 @@
 //! 構文解析器
-
 use crate::tokenizer::Tokenizer;
 use crate::token::*;
 use crate::node::*;
@@ -50,44 +49,29 @@ impl Parser {
     // parse
     //-------------------------------------------------------------
     pub fn parse(&mut self) -> Result<Vec<Node>, String> {
+        let mut result: Vec<Node> = vec![];
         // 最初に関数定義があるかどうか調べる
         self.pre_read_def_func();
         // 冒頭から改めて読む
         self.cur.index = 0;
-        self.get_sentence_list()
-    }
-
-    // 『！「＊＊＊」を取り込む』を先読みする
-    pub fn check_include_files(&mut self) -> i32 {
-        let mut result = 0;
-        let mut flag_line_top = true;
+        let mut old_index = 0;
         while self.cur.can_read() {
-            // 行頭の「!」かどうかを判定
-            let t = self.cur.peek();
-            if flag_line_top && t.value.eq_char('!') {
-                self.cur.next(); // skip !
-                // ! "str" word
-                if self.cur.eq_kinds(&[TokenKind::String, TokenKind::Word]) {
-                    let file_t = self.cur.next();
-                    let do_t = self.cur.next();
-                    // 取り込む？
-                    if do_t.value.eq_str("取込") {
-                        let file_path = file_t.value.to_string();
-                        self.context.include_files.push(file_path);
-                        result += 1;
-                        continue;
-                    }
-                }
+            // get sentence list
+            match self.get_sentence_list() {
+                Ok(nodes) => {
+                    result.extend(nodes);
+                },
+                Err(msg) => return Err(msg),
             }
-            // 行頭かどうかを確認
-            if self.cur.eq_kind(TokenKind::Eol) {
-                flag_line_top = true;
-            } else {
-                flag_line_top = false;
+            // same index?
+            if old_index == self.cur.index {
+                let t = self.cur.peek();
+                self.throw_error_token("解析できないトークンがあります", t);
+                return Err(self.get_error_str());
             }
-            self.cur.next();
+            old_index = self.cur.index;
         }
-        result
+        Ok(result)
     }
 
     fn pre_read_def_func(&mut self) {
@@ -334,9 +318,11 @@ impl Parser {
     fn check_comment(&mut self) -> Option<Node> {
         if !self.cur.eq_kind(TokenKind::Comment) { return None; }
         let t = self.cur.next();
+        let comment = t.value.to_string();
+        if comment.len() == 0 { return None; }
         let node = Node::new(
             NodeKind::Comment,
-            NodeValue::S(t.value.to_string()),
+            NodeValue::S(comment),
             None,
             self.pos(&t));
         Some(node)

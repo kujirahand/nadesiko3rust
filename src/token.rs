@@ -89,6 +89,10 @@ impl Token {
     pub fn new_empty() -> Self {
         Self::new(TokenKind::None, NValue::Empty, None, TokenPos::new(0, 0, 0))
     }
+    /// new comment token
+    pub fn new_comment(comment: &str, pos: TokenPos) -> Self {
+        Self::new(TokenKind::Comment, NValue::from_str(comment), None, pos)
+    }
     /// new token form char
     pub fn new_char(kind: TokenKind, label: char, pos: TokenPos) -> Self {
         Self {

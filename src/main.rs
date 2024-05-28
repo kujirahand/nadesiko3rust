@@ -59,24 +59,46 @@ fn main() {
     compile_and_run(&src, &filename, debug_mode, parse_mode);
 }
 
+fn include_file(context: &mut NodeContext, tokens: Vec<token::Token>) -> Vec<token::Token> {
+    // 取り込むが使われている？
+    let (mut tokens, files) = tokenizer::read_include_files(tokens);
+    if files.len() > 0 {
+        for f in files.iter() {
+            // 既に読み込み済みであればスキップ
+            if let Some(_no) = context.find_files(f) { continue; }
+            // ファイルを読み込む
+            let src = match fs::read_to_string(f) {
+                Ok(s) => s,
+                Err(err) => { println!("取り込み対象ファイル『{}』が読めません。{}", f, err); return vec![]; },
+            };
+            // トークンに変換
+            let fileno = context.set_filename(f);
+            let mut included_tokens = tokenizer::tokenize(&src, 0, fileno);
+            included_tokens.extend(tokens);
+            tokens = included_tokens;
+        }
+    }
+    tokens
+}
+
 fn compile_and_run(src: &str, fname: &str, debug_mode: bool, parse_mode: bool) {
     // prepare
     let mut context = NodeContext::new();
     context.debug_mode = debug_mode;
     sys_function::register(&mut context);
     let fileno = context.set_filename(fname);
-    let cur = strcur::StrCur::from(src, fileno);
-    
+
     // tokenizer
     if debug_mode { println!("--- tokenize ---"); }
     let tokens = tokenizer::tokenize(src, 0, fileno);
     if debug_mode { println!("{}", token::tokens_string(&tokens)); }
 
     if debug_mode { println!("--- include ---"); }
-    let mut parser = parser::Parser::new_context(tokens, context);
-    parser.check_include_files();
-    
+    let tokens = include_file(&mut context, tokens);
+
+    // parser
     if debug_mode { println!("--- parse ---"); }
+    let mut parser = parser::Parser::new_context(tokens, context);
     let nodes = match parser.parse() {
         Ok(nodes) => nodes,
         Err(e) => { println!("!!{}", e); return },
@@ -84,7 +106,7 @@ fn compile_and_run(src: &str, fname: &str, debug_mode: bool, parse_mode: bool) {
     if debug_mode {
         println!("--- nodes ---");
         // println!("Nodes={:?}", nodes);
-        println!("{}", node::nodes_to_string_lineno(&nodes, &cur, "\n"));
+        println!("{}", node::nodes_to_string_lineno(&nodes, "\n"));
         println!("--- user function ---");
         // グローバルな関数をチェック
         let g_scope = &parser.context.scopes.scopes[1];
@@ -93,7 +115,7 @@ fn compile_and_run(src: &str, fname: &str, debug_mode: bool, parse_mode: bool) {
             match v {
                 node::NodeValue::CallFunc(name, _no, nodes) => {
                     println!("●{}", name);
-                    println!("{}", node::nodes_to_string_lineno(nodes, &cur, "\n"));
+                    println!("{}", node::nodes_to_string_lineno(nodes, "\n"));
                 },
                 _ => {},
             }
