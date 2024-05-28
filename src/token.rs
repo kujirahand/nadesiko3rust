@@ -58,13 +58,15 @@ pub struct TokenPos {
     pub start: i32,
     pub end: i32,
     pub fileno: i32,
+    pub row: i32, // 字句解析した後で設定する
+    pub col: i32, // 字句解析した後で設定する
 }
 
 impl TokenPos {
     pub fn new(start: i32, end: i32, fileno: i32) -> Self {
-        Self { start, end, fileno }
+        Self { start, end, fileno, row: 0, col: 0 }
     }
-    pub fn to_string(&self) -> String {
+    pub fn to_string_se(&self) -> String {
         format!("({},{})", self.start, self.end)
     }
 }
@@ -192,7 +194,17 @@ pub fn tokens_string(vt: &[Token]) -> String {
 pub fn tokens_string_pos(vt: &[Token]) -> String {
     let mut res = String::new();
     for tok in vt.iter() {
-        let s = format!("[{}]{}", tok, tok.pos.to_string());
+        let s = format!("[{}]{}", tok, tok.pos.to_string_se());
+        res.push_str(&s);
+    }
+    format!("{}", res)
+}
+
+#[allow(dead_code)]
+pub fn tokens_string_lineno(vt: &[Token]) -> String {
+    let mut res = String::new();
+    for tok in vt.iter() {
+        let s = format!("[{}]({})", tok, tok.pos.row);
         res.push_str(&s);
     }
     format!("{}", res)

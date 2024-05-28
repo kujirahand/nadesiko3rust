@@ -3,6 +3,7 @@
 use crate::kanautils;
 use crate::strcur::StrCur;
 
+/// 全角半角、記号などを揃える
 pub fn convert(src: &str, fileno: i32) -> String {
     let mut result = String::new();
     let mut cur = StrCur::from(src, fileno);

@@ -11,7 +11,6 @@ use crate::nvalue::NValue;
 #[derive(Debug, Clone)]
 pub struct Tokenizer {
     pub cur: StrCur,
-    pub tokens: Vec<Token>,
 }
 
 impl Tokenizer {
@@ -20,14 +19,12 @@ impl Tokenizer {
         let src = prepare::convert(src, fileno);
         Tokenizer {
             cur: StrCur::from_source(&src, start, fileno),
-            tokens: vec![],
         }
     }
     /// 文字列をトークンに区切る
     pub fn tokenize(&mut self) -> Vec<Token> {
         // 普通にトークンに区切る
-        let tok: Vec<Token> = self.tokenize_src();
-
+        let tok: Vec<Token> = self.split();
         // 助詞の「は」を＝に展開する
         let mut last_is_eq = false;
         let mut result: Vec<Token> = vec![];
@@ -51,17 +48,21 @@ impl Tokenizer {
             }
             result.push(t);
         }
+        // 行番号を計算する
+        self.calc_lineno(&mut result);
         result
     }
 
-    fn tokenize_src(&mut self) -> Vec<Token> {
+    /// 文字列を単純にトークンに分割する
+    fn split(&mut self) -> Vec<Token> {
         let mut cur = self.cur.clone();
         let mut result: Vec<Token> = vec![];
         while cur.can_read() {
             if cur.skip_space() { continue; }
             let ch = cur.peek();
             match ch {
-                '\n' => { result.push(read_lf(&mut cur)); continue; },
+                '\r' => { cur.next(); continue; }, // skip CR
+                '\n' => { result.push(read_lf(&mut cur)); continue; }, // record LF
                 ';' => {
                     if cur.eq_str(";;;") { // 「。。。」と「ここまで」は同じ意味
                         flag_push_n(TokenKind::BlockEnd, ';', &mut result, &mut cur, 3);
@@ -225,6 +226,33 @@ impl Tokenizer {
             ));
     }
 
+    /// ソースから行番号を計算する
+    pub fn calc_lineno(&mut self, tokens: &mut Vec<Token>) {
+        // 行番号を計算する
+        let mut lineno = 1;
+        let mut col = 1;
+        // 最初に行番号とインデックスの対応表を作る
+        let mut rows_vec: Vec<i32> = vec![0; self.cur.src.len()];
+        let mut cols_vec: Vec<i32> = vec![0; self.cur.src.len()];
+        for (i, c) in self.cur.src.iter().enumerate() {
+            rows_vec[i] = lineno;
+            cols_vec[i] = col;
+            if *c == '\n' {
+                lineno += 1;
+                col = 1;
+            } else {
+                col += 1;
+            }
+        }
+        // 対応表を元にしてトークンに行番号を入れる
+        for tok in tokens.iter_mut() {
+            let pos = tok.pos.start as usize;
+            if pos < rows_vec.len() {
+                tok.pos.row = rows_vec[pos];
+                tok.pos.col = cols_vec[pos]
+            }
+        }
+    }
 }
 
 
@@ -267,8 +295,17 @@ fn flag_push_n(kind: TokenKind, flag_ch: char, result: &mut Vec<Token>, cur: &mu
 
 fn read_lf(cur: &mut StrCur) -> Token {
     let start = cur.get_index_i();
-    let lf = cur.next();
-    Token::new_char(TokenKind::Eol, lf, TokenPos::new(start, start + 1, cur.fileno))
+    cur.next(); // skip LF
+    // 連続する改行をスキップ
+    while cur.can_read() {
+        let c = cur.peek();
+        if c == '\n' || c == '\r' {
+            cur.next();
+            continue;
+        }
+        break;
+    }
+    Token::new_char(TokenKind::Eol, '\n', TokenPos::new(start, start + 1, cur.fileno))
 }
 
 fn read_linecomment(cur: &mut StrCur) -> Token {
@@ -535,4 +572,12 @@ mod test_tokenizer {
         let t = tokenize_test("「a={a}」と表示");
         assert_eq!(tokens_string(&t), "[String:a=][&][(][Word:a][)][&][String:/と][Word:表示]");
     }
+
+    #[test]
+    fn test_calc_lineno() {
+        let t = tokenize_test("A=0\nB=1\nC=1");
+        assert_eq!(tokens_string(&t), "[Word:A][=][Int:0][Eol][Word:B][=][Int:1][Eol][Word:C][=][Int:1]");
+        assert_eq!(tokens_string_lineno(&t), "[Word:A](1)[=](1)[Int:0](1)[Eol](1)[Word:B](2)[=](2)[Int:1](2)[Eol](2)[Word:C](3)[=](3)[Int:1](3)");
+    }
+
 }

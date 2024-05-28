@@ -39,19 +39,25 @@ pub struct NodePos {
     pub start: i32,
     pub end: i32,
     pub fileno: i32,
+    pub col: i32,
+    pub row: i32,
 }
 impl NodePos {
     pub fn empty() -> Self {
         NodePos {
             start: 0,
             end: 0,
+            row: 0,
+            col: 0,
             fileno: 0,
         }
     }
-    pub fn new(start: i32, end: i32, fileno: i32) -> Self {
+    pub fn new(start: i32, end: i32, row: i32, col: i32, fileno: i32) -> Self {
         NodePos {
             start,
             end,
+            row,
+            col,
             fileno,
         }
     }
@@ -619,6 +625,13 @@ impl NodeContext {
             },
         }
     }
+    /// get file name
+    pub fn get_filename(&self, fileno: i32) -> String {
+        if fileno < 0 || fileno as usize >= self.files.len() {
+            return String::from("");
+        }
+        self.files[fileno as usize].clone()
+    }
     pub fn find_files(&self, filename: &str) -> Option<i32> {
         for (i, fname) in self.files.iter().enumerate() {
             if fname == filename { return Some(i as i32); }
@@ -637,7 +650,8 @@ impl NodeContext {
         res
     }
     pub fn throw_error(&mut self, kind: NodeErrorKind, level: NodeErrorLevel, msg: String, pos: NodePos) {
-        let err = NodeError::new(kind, level, msg, pos);
+        let filename = self.get_filename(pos.fileno);
+        let err = NodeError::new(kind, level, msg, pos.row, pos.col, filename);
         println!("{}", &err.to_string());
         self.errors.push(err);
         match level {
@@ -750,29 +764,33 @@ pub struct NodeError {
     pub kind: NodeErrorKind,
     pub level: NodeErrorLevel,
     pub message: String,
-    pub pos: NodePos,
+    pub lineno: i32,
+    pub colno: i32,
+    pub filename: String,
 }
 
 impl NodeError {
-    pub fn new(kind: NodeErrorKind, level: NodeErrorLevel, message: String, pos: NodePos) -> NodeError {
+    pub fn new(kind: NodeErrorKind, level: NodeErrorLevel, message: String, lineno: i32, colno: i32, filename: String) -> NodeError {
         Self {
             kind,
             level,
             message,
-            pos,
+            lineno,
+            colno,
+            filename,
         }
     }
     pub fn to_string(&self) -> String {
         let kind_str = match self.kind {
-            NodeErrorKind::ParserError => "解析時",
+            NodeErrorKind::ParserError => "構文解析",
             NodeErrorKind::RuntimeError => "実行時"
         };
         let level_str = match self.level {
             NodeErrorLevel::Error => "エラー",
-            NodeErrorLevel::Warning => "警告",
+            NodeErrorLevel::Warning => "の警告",
             NodeErrorLevel::Hint => "ヒント",
         };
-        format!("[{}{}]({:?}){}", kind_str, level_str, self.pos, self.message)
+        format!("[{}{}]({}:{}:{}){}", kind_str, level_str, self.filename, self.lineno, self.colno, self.message)
     } 
 }
 

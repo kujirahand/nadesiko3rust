@@ -60,16 +60,16 @@ fn main() {
 }
 
 fn compile_and_run(src: &str, fname: &str, debug_mode: bool, parse_mode: bool) {
-    // cursor
-    let cur = strcur::StrCur::from(src, 0);
     // prepare
     let mut parser = parser::Parser::new();
     parser.context.debug_mode = debug_mode;
+    let fileno = parser.context.set_filename(fname);
+    let cur = strcur::StrCur::from(src, 0);
     sys_function::register(&mut parser.context);
     // sys_function_debug::register(&mut parser.context);
     // tokenizer
     if debug_mode { println!("--- tokenize ---"); }
-    let tokens = tokenizer::tokenize_test(src);
+    let tokens = tokenizer::tokenize(src, 0, fileno);
     if debug_mode { println!("{}", token::tokens_string(&tokens)); }
     if debug_mode { println!("--- parse ---"); }
     let nodes = match parser.parse(tokens, fname) {

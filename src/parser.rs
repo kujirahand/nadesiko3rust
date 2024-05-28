@@ -37,7 +37,7 @@ impl Parser {
         self.throw_error(message, self.pos(&t));
     }
     pub fn pos(&self, t: &Token) -> NodePos {
-        NodePos::new(t.pos.start, t.pos.end, self.fileno)
+        NodePos::new(t.pos.start, t.pos.end, t.pos.row, t.pos.col, self.fileno)
     }
 
     //-------------------------------------------------------------
@@ -46,11 +46,24 @@ impl Parser {
     pub fn parse(&mut self, tokens: Vec<Token>, filename: &str) -> Result<Vec<Node>, String> {
         self.cur = TokenCur::new(tokens);
         self.fileno = self.context.set_filename(filename);
+        // 取り込むがあるかどうか調べる
+        self.pre_read_include();
         // 最初に関数定義があるかどうか調べる
         self.pre_read_def_func();
         // 冒頭から改めて読む
         self.cur.index = 0;
         self.get_sentence_list()
+    }
+
+    fn pre_read_include(&mut self) {
+        // 『！「＊＊＊」を読み込む』を先読みする
+        while self.cur.can_read() {
+            if self.cur.eq_kind(TokenKind::DefFunc) {
+                // todo: 『！「＊＊＊」を読み込む』の処理
+                continue;
+            }
+            self.cur.next();
+        }
     }
 
     fn pre_read_def_func(&mut self) {
