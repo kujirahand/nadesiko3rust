@@ -790,7 +790,7 @@ impl NodeError {
             NodeErrorLevel::Warning => "の警告",
             NodeErrorLevel::Hint => "ヒント",
         };
-        format!("[{}{}]({}:{}:{}){}", kind_str, level_str, self.filename, self.lineno, self.colno, self.message)
+        format!("[{}{}]({}:{}:{}) {}", kind_str, level_str, self.filename, self.lineno, self.colno, self.message)
     } 
 }
 

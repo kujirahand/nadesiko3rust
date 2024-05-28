@@ -193,16 +193,11 @@ impl Parser {
         }
         // スタックの余剰があればエラーとして報告する
         if self.stack.len() > 0 {
-            let mut pos: NodePos = NodePos::empty();
-            let mut errmsg = String::from("計算式に次の余剰があります。\n");
-            while let Some(n) = self.stack.pop() {
-                errmsg = format!(
-                    "{}({})\n",
-                    errmsg,
-                    n.to_string());
-                pos = n.pos;
-            }
-            self.throw_error(format!("{}必要なら式を(式)のようにカッコで囲ってみてください。", errmsg), pos);
+            let pos: NodePos = self.pos(&self.cur.peek());
+            let errmsg = String::from("計算式に次の余剰があります。");
+            let args: Vec<String> = self.stack.iter().map(|n| n.to_string()).collect();
+            let args_str = args.join(", ");
+            self.throw_error(format!("{}必要なら式を(式)のようにカッコで囲ってみてください。余剰の値: {}", errmsg, args_str), pos);
         }
         None
     }
