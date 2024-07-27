@@ -18,6 +18,10 @@
             });
         }
         runWasm().catch(console.error);
+        window.nako3_handler = (name, arg) => {
+            console.log(name, arg);
+            return arg;
+        }
     </script>
 </head>
 
@@ -25,9 +29,9 @@
     <h1>なでしこ3Rustのテスト</h1>
     <div>
         <textarea id="code" rows="10" cols="50">
+「はろー」と言う。
 「こんにちは」と表示。
-「こんにちは」と表示。
-「こんにちは」と表示。
+1＋2×3と表示。
         </textarea>
     </div>
     <div>

@@ -1,0 +1,19 @@
+[package]
+name = "nadesiko3cli"
+version = "0.2.0"
+authors = ["kujirahand"]
+description = "Japanese programming language Nadesiko v3"
+license = "MIT"
+edition = "2021"
+readme = "README.md"
+repository = "https://github.com/kujirahand/nadesiko3rust"
+homepage = "https://nadesi.com"
+documentation = "https://docs.rs/nadesiko3"
+keywords = ["script", "Japanese", "cli"]
+
+[dependencies]
+nadesiko3 = { path = "../core" }
+
+[[bin]]
+name = "rnako3"
+path = "src/main.rs"

@@ -1,27 +1,19 @@
 [package]
 name = "nadesiko3rust"
-version = "0.1.4"
+version = "0.2.0"
 authors = ["kujirahand"]
-description = "Japanese programming language Nadesiko v3"
-license = "MIT"
+description = "Japanese programming language Nadesiko v3 for WASM"
+license-file = "LICENSE"
 edition = "2021"
 readme = "README.md"
 repository = "https://github.com/kujirahand/nadesiko3rust"
 homepage = "https://nadesi.com"
 documentation = "https://docs.rs/nadesiko3"
 keywords = ["script", "Japanese"] 
-include = ["src/", "LICENSE", "README.md", "CHANGELOG.md", "COPYRIGHT"]
-
-[package.metadata.docs.rs]
-rustc-args = ["--cfg", "docsrs"]
-all-features = true
 
 [dependencies]
 wasm-bindgen = "0.2"
+nadesiko3 = { path = "../core" }
 
 [lib]
 crate-type = ["cdylib", "rlib"]
-
-[[bin]]
-name = "rnako3"
-path = "src/main.rs"

@@ -2,8 +2,10 @@
 /// Japanese programming language "Nadesiko"
 /// - <https://github.com/kujirahand/nadesiko3rust>
 
-use nadesiko3rust::{node::NodeContext, *};
+mod cli_function;
+
 use std::fs;
+use nadesiko3::{node::NodeContext, runner, node, parser, token, tokenizer, sys_function};
 
 fn main() {
     let mut src = String::from("");
@@ -87,6 +89,7 @@ fn compile_and_run(src: &str, fname: &str, debug_mode: bool, parse_mode: bool) {
     let mut context = NodeContext::new();
     context.debug_mode = debug_mode;
     sys_function::register(&mut context);
+    cli_function::register(&mut context);
     let fileno = context.set_filename(fname);
 
     // tokenizer

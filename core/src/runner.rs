@@ -472,6 +472,7 @@ impl RunOption {
     }
 }
 
+/// eval code
 pub fn eval(code: &str, options: RunOption) -> Result<NodeValue,String> {
     // 意味解析器を初期化
     let mut context = NodeContext::new();
@@ -497,6 +498,22 @@ pub fn eval(code: &str, options: RunOption) -> Result<NodeValue,String> {
         };
     }
     run_nodes(&mut context, &nodes)
+}
+
+/// eval code with context (you can add functions, and set filename)
+pub fn eval_context(ctx: &mut NodeContext, code: &str) -> Result<NodeValue,String> {
+    // 字句解析
+    let tokens = tokenizer::tokenize_test(code);
+    // 意味解析
+    let mut parser = parser::Parser::new_context(tokens, ctx.clone());
+    let nodes = match parser.parse() {
+        Ok(nodes) => nodes,
+        Err(e) => { return Err(e); }
+    };
+    match run_nodes(ctx, &nodes) {
+        Ok(_) => Ok(NodeValue::S(String::from(ctx.print_log.trim_end()))),
+        Err(e) => Err(e)
+    }
 }
 
 pub fn eval_str(code: &str) -> String {

@@ -23,23 +23,23 @@
 //! @see runner::eval()
 //! 
 
-pub mod nvalue;
-pub mod prepare;
-pub mod strcur;
-pub mod token;
-pub mod kanautils;
-pub mod tokenizer;
-pub mod josi_list;
-pub mod parser;
-pub mod reserved_words;
-pub mod tokencur;
-pub mod node;
-pub mod operator;
-pub mod bytecode_gen;
-pub mod bytecode_run;
-pub mod runner;
-pub mod sys_function;
-pub mod sys_function_debug;
+mod wasm_function;
+use wasm_bindgen::prelude::*;
+
+use nadesiko3::*;
+
+
+#[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(js_namespace = console)]
+    fn log(s: &str);
+}
+
+/// モジュール呼び出し側で定義しなければいけない関数
+#[wasm_bindgen]
+extern "C" {
+    fn nako3_handler(name: &str, s: &str) -> String;
+}
 
 /// 引数codeに指定したプログラムを実行して結果を文字列で返す
 pub fn eval_str(code: &str) -> String {
@@ -51,24 +51,39 @@ pub fn eval(code: &str) -> Result<node::NodeValue, String> {
     runner::eval(code, runner::RunOption::normal())
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-pub mod cli {
-    // command line interface
-}
-
-#[cfg(target_arch = "wasm32")]
+// #[cfg(target_arch = "wasm32")]
 mod wasm {
+    use node::*;
     use wasm_bindgen::prelude::*;
     use super::*;
 
+    pub fn nako3_print(s: &str) {
+        nako3_handler("print", s);
+    }
+
+    pub fn nako3_run(ctx: &mut NodeContext, code: &str) -> Result<NodeValue, String> {
+        ctx.print_fn = Some(nako3_print);
+        ctx.set_filename("main.nako3");
+        nadesiko3::sys_function::register(ctx);
+        wasm_function::register(ctx);
+        runner::eval_context(ctx, code)
+    }
+
     #[wasm_bindgen]
     pub fn nako_eval_str(code: &str) -> String {
-        runner::eval_str(code)
+        let mut ctx = NodeContext::new();
+        let result = nako3_run(&mut ctx, code);
+        match result {
+            Ok(v) => v.to_string(),
+            Err(e) => format!("!!{}", e.to_string()),
+        }
     }
     #[wasm_bindgen]
     pub fn nako_eval_getlogs(code: &str) -> String {
-        match runner::eval(code, runner::RunOption::print_log()) {
-            Ok(v) => v.to_string(),
+        let mut ctx = NodeContext::new();
+        let result = nako3_run(&mut ctx, code);
+        match result {
+            Ok(_) => ctx.print_log.clone(),
             Err(e) => format!("!!{}", e.to_string()),
         }
     }

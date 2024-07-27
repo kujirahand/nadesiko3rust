@@ -1,7 +1,6 @@
 //! なでしこの標準関数を定義したもの
 
 use crate::node::*;
-use std::{thread, time};
 
 /// 関数をシステムに登録する
 pub fn register(ctx: &mut NodeContext) {
@@ -45,22 +44,12 @@ pub fn register(ctx: &mut NodeContext) {
     ctx.add_sysconst("波カッコ閉", NodeValue::from_str("}"));
     ctx.add_sysconst("空", NodeValue::from_str(""));
     ctx.add_sysconst("PI", NodeValue::F(3.141592653589793));
-    // 
-    ctx.add_sysfunc("秒待", sysargs(&[&[""]]), sys_sleep);
-}
-
-fn sys_sleep(_: &mut NodeContext, args: Vec<NodeValue>) -> Option<NodeValue> {
-    let n = args[0].to_float(0.0);
-    let sec = time::Duration::from_secs_f64(n);
-    thread::sleep(sec);
-    None
 }
 
 /// なでしこのシステム関数で画面表示
 pub fn sys_print(ctx: &mut NodeContext, args: Vec<NodeValue>) -> Option<NodeValue> {
     let s = if args.len() > 0 { args[0].to_string() } else { String::from("<表示内容がありません>") };
-    println!("{}", s);
-    ctx.print_log.push_str(&format!("{}\n", s));
+    ctx.println(&s);
     Some(NodeValue::S(s))
 } 
 

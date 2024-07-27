@@ -592,6 +592,8 @@ pub struct NodeContext {
     pub try_return: Option<usize>,
     pub return_level: usize,
     pub print_log: String,
+    /// set print function
+    pub print_fn: Option<fn(&str)>,
 }
 
 impl NodeContext {
@@ -610,6 +612,7 @@ impl NodeContext {
             try_return: None,
             return_level: 0,
             print_log: String::new(),
+            print_fn: None,
         }
     }
     // for file management
@@ -715,6 +718,24 @@ impl NodeContext {
         scope.var_metas[no].kind = kind;
         no
     }
+    /// print
+    pub fn print(&mut self, str: &str) {
+        // add to log
+        self.print_log.push_str(str);
+        // call print function
+        match &self.print_fn {
+            Some(f) => f(str),
+            None => {
+                print!("{}", str); // default
+            }
+        };
+    }
+    /// println
+    pub fn println(&mut self, str: &str) {
+        let disp = format!("{}\n", str);
+        self.print(&disp);
+    }
+
 }
 
 type SysFuncType = fn(&mut NodeContext, Vec<NodeValue>) -> Option<NodeValue>;

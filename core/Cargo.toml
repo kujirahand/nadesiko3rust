@@ -1,0 +1,20 @@
+[package]
+name = "nadesiko3"
+version = "0.2.0"
+authors = ["kujirahand"]
+description = "Japanese programming language Nadesiko v3"
+license = "MIT"
+edition = "2021"
+readme = "README.md"
+repository = "https://github.com/kujirahand/nadesiko3rust"
+homepage = "https://nadesi.com"
+documentation = "https://docs.rs/nadesiko3"
+keywords = ["script", "Japanese"] 
+include = ["src/", "LICENSE", "README.md", "CHANGELOG.md", "COPYRIGHT"]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "rnako3"
+path = "src/main.rs"
