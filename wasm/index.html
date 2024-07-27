@@ -18,6 +18,7 @@
             });
         }
         runWasm().catch(console.error);
+        // Rustから送出される表示ログなどを処理するハンドラ(必須)
         window.nako3_handler = (name, arg) => {
             console.log(name, arg);
             return arg;
