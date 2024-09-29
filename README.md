@@ -1,9 +1,12 @@
 # 日本語プログラミング言語「なでしこv3」(Rust実装版)
 
+This project is Japanese Programming Language "Nadesiko3" for Rust.
+Original was developped with JavaScript/TypeScript.
+
 このプロジェクトは、日本語プログラミング言語「なでしこ3」をプログラミング言語Rustで再実装するプロジェクトです。
 オリジナルの「なでしこ3」はJavaScriptで実装されています。
 
-- [日本語プログラミング言語「なでしこ3」のリポジトリ](https://github.com/kujirahand/nadesiko3)
+- [日本語プログラミング言語「なでしこ3」のリポジトリ(Oiriginal)](https://github.com/kujirahand/nadesiko3)
 
 
 ## 言語コアとWASM版
