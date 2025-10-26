@@ -8,7 +8,6 @@ Original was developped with JavaScript/TypeScript.
 
 - [日本語プログラミング言語「なでしこ3」のリポジトリ(Oiriginal)](https://github.com/kujirahand/nadesiko3)
 
-
 ## 言語コアとWASM版
 
 オリジナルの「なでしこ3」と区別するため、本リポジトリを`nadesiko3rust`としています。
@@ -18,7 +17,6 @@ Original was developped with JavaScript/TypeScript.
 - [コマンドライン版](cli/README.md) ... 言語コアを利用しつつコマンドラインに特化したもの
 - [WASM版](wasm/README.md) ... 言語コアを利用しつつブラウザで実行できるようにしたもの
 
-
 ## 実装状況
 
 条件分岐の「もし」文や繰り返しの「繰り返し」、関数定義など、簡単な計算ができるようになりました。
@@ -26,7 +24,7 @@ Original was developped with JavaScript/TypeScript.
 
 フィボナッチやFizzBuzzのコードが動くくらいです。
 
-```
+```nako
 # フィボナッチ
 ●FIB(Nの)
 　　もし、N<2ならばNで戻る。
@@ -35,7 +33,7 @@ Original was developped with JavaScript/TypeScript.
 (25のFIB)を表示。
 ```
 
-```
+```nako
 # FizzBuzz
 Nを1から100まで繰り返す
 　　もし、(N%3=0)かつ(N%5=0)ならば「FizzBuzz」と表示。

@@ -3,7 +3,8 @@
 //! You can write the code using Japanese.
 //! 
 //! # Example
-//! ```
+//! 
+//! ```rs
 //! use nadesiko3::*;
 //! // 文字を表示
 //! let result = eval_str("「こんにちは」と表示");
